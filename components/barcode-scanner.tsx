@@ -118,7 +118,7 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
           {!scanning ? (
             <Button onClick={startScanner} className="w-full">
               <Camera className="mr-2 h-4 w-4" />
-              Scan ID Card
+              Scan Student ID
             </Button>
           ) : (
             <Button onClick={stopScanner} variant="destructive" className="w-full">
