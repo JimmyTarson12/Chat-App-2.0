@@ -9,10 +9,11 @@ import AdminPasswordModal from "./admin-password-modal"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchStudentData, findStudentById, type Student } from "@/utils/csv-parser"
 import { Loader2 } from "lucide-react"
+import { registerSession } from "@/utils/session-manager"
 
 interface LoginFormProps {
-  onLogin: (username: string) => void
-  onAdminLogin: () => void
+  onLogin: (username: string, sessionId: string) => void
+  onAdminLogin: (sessionId: string) => void
 }
 
 export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
@@ -50,7 +51,8 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
 
     if (student) {
       const fullName = `${student.firstName} ${student.lastName}`
-      onLogin(fullName)
+      const sessionId = registerSession(fullName, false)
+      onLogin(fullName, sessionId)
       toast({
         title: "Welcome!",
         description: `Logged in as ${fullName}`,
@@ -70,7 +72,8 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
 
   const handleAdminPasswordSubmit = (password: string) => {
     if (password === "SigmaBoyA") {
-      onAdminLogin()
+      const sessionId = registerSession("Admin", true)
+      onAdminLogin(sessionId)
       setIsAdminModalOpen(false)
     } else {
       toast({
@@ -85,8 +88,8 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
     <div className="flex h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome to the Mypro Group Chat</CardTitle>
-          <CardDescription>Scan your student ID card to join</CardDescription>
+          <CardTitle className="text-2xl">Welcome to Group Chat</CardTitle>
+          <CardDescription>Scan your ID card to join</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
