@@ -85,7 +85,7 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
     <div className="flex h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome to the Mylo Group Chat</CardTitle>
+          <CardTitle className="text-2xl">Welcome to the Mypro Group Chat</CardTitle>
           <CardDescription>Scan your student ID card to join</CardDescription>
         </CardHeader>
         <CardContent>
