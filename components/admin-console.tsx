@@ -836,6 +836,11 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
                           <div>
                             <div className="font-medium">{account.name}</div>
                             <div className="text-sm text-muted-foreground">ID: {account.id}</div>
+                            <div className="text-sm text-muted-foreground flex items-center">
+                              <Key className="h-3 w-3 mr-1" />
+                              Password:{" "}
+                              <span className="font-mono bg-muted px-1 ml-1 rounded">{account.passwordPlain}</span>
+                            </div>
                             <div className="text-xs text-muted-foreground">
                               Registered on {new Date(account.createdAt).toLocaleDateString()}
                               {account.lastLogin && (
