@@ -21,8 +21,6 @@ import {
   PinOff,
   AlertTriangle,
   CheckCircle2,
-  LogOut,
-  Users,
 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmationDialog } from "./confirmation-dialog"
@@ -31,7 +29,6 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import Gun from "gun"
-import { forceLogout, subscribeToSessions, type SessionData } from "@/utils/session-manager"
 
 // Initialize Gun
 const gun = Gun({
@@ -76,11 +73,10 @@ interface ChatStatus {
 
 interface AdminConsoleProps {
   username: string
-  sessionId: string
   onLogout: () => void
 }
 
-export default function AdminConsole({ username, sessionId, onLogout }: AdminConsoleProps) {
+export default function AdminConsole({ username, onLogout }: AdminConsoleProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -90,7 +86,6 @@ export default function AdminConsole({ username, sessionId, onLogout }: AdminCon
   const [mutedUsers, setMutedUsers] = useState<Record<string, MutedUser>>({})
   const [chatStatus, setChatStatus] = useState<ChatStatus>({ enabled: true })
   const [disableReason, setDisableReason] = useState<string>("")
-  const [activeSessions, setActiveSessions] = useState<Record<string, SessionData>>({})
   const { toast } = useToast()
 
   useEffect(() => {
@@ -167,15 +162,6 @@ export default function AdminConsole({ username, sessionId, onLogout }: AdminCon
         setChatStatus({ enabled: true })
       }
     })
-
-    // Subscribe to active sessions
-    const unsubscribeSessions = subscribeToSessions((sessions) => {
-      setActiveSessions(sessions)
-    })
-
-    return () => {
-      unsubscribeSessions()
-    }
   }, [])
 
   const handleDeleteMessage = (id: string) => {
@@ -381,48 +367,11 @@ export default function AdminConsole({ username, sessionId, onLogout }: AdminCon
     setDisableReason("")
   }
 
-  const handleForceLogout = (targetSessionId: string) => {
-    if (targetSessionId === sessionId) {
-      toast({
-        title: "Cannot log out yourself",
-        description: "You cannot force logout your own session.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    forceLogout(targetSessionId)
-
-    toast({
-      title: "User logged out",
-      description: "The user has been forcefully logged out.",
-    })
-  }
-
-  const handleForceLogoutAll = () => {
-    // Force logout all users except current admin
-    Object.keys(activeSessions).forEach((sid) => {
-      if (sid !== sessionId) {
-        forceLogout(sid)
-      }
-    })
-
-    toast({
-      title: "All users logged out",
-      description: "All users have been forcefully logged out.",
-    })
-  }
-
   const isMessagePinned = (messageId: string) => {
     return pinnedMessages.some((pm) => pm.messageId === messageId)
   }
 
   const sortedActiveUsers = Array.from(activeUsers).sort()
-
-  // Filter out current admin session and sort by login time (newest first)
-  const activeSessionsList = Object.values(activeSessions)
-    .filter((session) => session.sessionId !== sessionId)
-    .sort((a, b) => b.loginTime - a.loginTime)
 
   return (
     <div className="container mx-auto max-w-4xl p-4">
@@ -454,7 +403,7 @@ export default function AdminConsole({ username, sessionId, onLogout }: AdminCon
         </CardHeader>
 
         <Tabs defaultValue="messages" className="flex flex-col flex-1">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="pinned">
               Pinned Messages
@@ -465,12 +414,6 @@ export default function AdminConsole({ username, sessionId, onLogout }: AdminCon
               )}
             </TabsTrigger>
             <TabsTrigger value="users">User Management</TabsTrigger>
-            <TabsTrigger value="sessions">
-              Active Sessions
-              <span className="ml-2 rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-xs">
-                {activeSessionsList.length}
-              </span>
-            </TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -647,71 +590,6 @@ export default function AdminConsole({ username, sessionId, onLogout }: AdminCon
                             <VolumeX className="h-4 w-4 mr-1" /> Mute
                           </>
                         )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="sessions" className="flex-1 flex flex-col">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-medium">Active Sessions</h3>
-                <p className="text-sm text-muted-foreground">
-                  Manage active user sessions and force logout users if needed.
-                </p>
-              </div>
-              <ConfirmationDialog
-                title="Log Out All Users"
-                description="Are you sure you want to log out all users? This will force everyone except you to log out immediately."
-                confirmText="Log Out All"
-                destructive={true}
-                onConfirm={handleForceLogoutAll}
-                trigger={
-                  <Button variant="destructive" size="sm">
-                    <LogOut className="h-4 w-4 mr-1" /> Log Out All Users
-                  </Button>
-                }
-              />
-            </div>
-
-            <ScrollArea className="flex-1 rounded-md border">
-              {activeSessionsList.length === 0 ? (
-                <div className="flex h-full items-center justify-center p-4 text-muted-foreground">
-                  <div className="text-center">
-                    <Users className="h-10 w-10 mx-auto mb-2 text-muted-foreground/50" />
-                    <p>No other active sessions found.</p>
-                    <p className="text-sm text-muted-foreground">You are the only user currently logged in.</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 space-y-2">
-                  {activeSessionsList.map((session) => (
-                    <div key={session.sessionId} className="flex items-center justify-between p-3 rounded-lg border">
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
-                          {session.username}
-                          {session.isAdmin && (
-                            <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                              Admin
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          <span>Logged in: {new Date(session.loginTime).toLocaleString()}</span>
-                          <span className="mx-2">•</span>
-                          <span>Last active: {new Date(session.lastActive).toLocaleString()}</span>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleForceLogout(session.sessionId)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                      >
-                        <LogOut className="h-4 w-4 mr-1" /> Force Logout
                       </Button>
                     </div>
                   ))}
