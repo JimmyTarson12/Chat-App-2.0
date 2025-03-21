@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,7 +13,6 @@ import LoginForm from "@/components/login-form"
 import ChatMessage from "@/components/chat-message"
 import AdminConsole from "@/components/admin-console"
 import Gun from "gun"
-import { checkSession, updateSessionActivity, endSession } from "@/utils/session-manager"
 
 // Initialize Gun
 const gun = Gun({
@@ -46,7 +45,6 @@ interface ChatStatus {
 
 export default function Home() {
   const [username, setUsername] = useState<string>("")
-  const [sessionId, setSessionId] = useState<string>("")
   const [message, setMessage] = useState<string>("")
   const [messages, setMessages] = useState<any[]>([])
   const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([])
@@ -55,48 +53,17 @@ export default function Home() {
   const [isMuted, setIsMuted] = useState<boolean>(false)
   const [chatStatus, setChatStatus] = useState<ChatStatus>({ enabled: true })
 
-  // Function to handle logout
-  const handleLogout = useCallback(() => {
-    if (sessionId) {
-      endSession(sessionId)
-    }
-    setUsername("")
-    setSessionId("")
-    setIsAdmin(false)
-    setIsMuted(false)
-    localStorage.removeItem("chat-username")
-    localStorage.removeItem("chat-admin")
-    localStorage.removeItem("chat-session-id")
-  }, [sessionId])
-
-  // Check for existing session on load
   useEffect(() => {
-    const storedSessionId = localStorage.getItem("chat-session-id")
+    // Check if username is stored in localStorage
+    const storedUsername = localStorage.getItem("chat-username")
+    if (storedUsername) {
+      setUsername(storedUsername)
+    }
 
-    if (storedSessionId) {
-      checkSession(storedSessionId, (isValid) => {
-        if (isValid) {
-          const storedUsername = localStorage.getItem("chat-username")
-          const storedAdminStatus = localStorage.getItem("chat-admin")
-
-          if (storedUsername) {
-            setUsername(storedUsername)
-            setSessionId(storedSessionId)
-
-            if (storedAdminStatus === "true") {
-              setIsAdmin(true)
-            }
-
-            // Update session activity
-            updateSessionActivity(storedSessionId)
-          } else {
-            handleLogout()
-          }
-        } else {
-          // Session is invalid, force logout
-          handleLogout()
-        }
-      })
+    // Check if admin status is stored
+    const storedAdminStatus = localStorage.getItem("chat-admin")
+    if (storedAdminStatus === "true") {
+      setIsAdmin(true)
     }
 
     // Subscribe to messages
@@ -154,25 +121,7 @@ export default function Home() {
     })
 
     setIsLoading(false)
-  }, [handleLogout])
-
-  // Periodically check if session is still valid
-  useEffect(() => {
-    if (!sessionId) return
-
-    const interval = setInterval(() => {
-      checkSession(sessionId, (isValid) => {
-        if (!isValid) {
-          handleLogout()
-        } else {
-          // Update session activity
-          updateSessionActivity(sessionId)
-        }
-      })
-    }, 10000) // Check every 10 seconds
-
-    return () => clearInterval(interval)
-  }, [sessionId, handleLogout])
+  }, [])
 
   // Subscribe to mute status when username changes
   useEffect(() => {
@@ -193,16 +142,14 @@ export default function Home() {
     }
   }, [username, isAdmin])
 
-  const handleLogin = (name: string, newSessionId: string) => {
+  const handleLogin = (name: string) => {
     setUsername(name)
-    setSessionId(newSessionId)
     localStorage.setItem("chat-username", name)
   }
 
-  const handleAdminLogin = (newSessionId: string) => {
+  const handleAdminLogin = () => {
     setIsAdmin(true)
     setUsername("Admin")
-    setSessionId(newSessionId)
     localStorage.setItem("chat-admin", "true")
     localStorage.setItem("chat-username", "Admin")
   }
@@ -224,6 +171,14 @@ export default function Home() {
     setMessage("")
   }
 
+  const handleLogout = () => {
+    setUsername("")
+    setIsAdmin(false)
+    setIsMuted(false)
+    localStorage.removeItem("chat-username")
+    localStorage.removeItem("chat-admin")
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -232,12 +187,12 @@ export default function Home() {
     )
   }
 
-  if (!username || !sessionId) {
+  if (!username) {
     return <LoginForm onLogin={handleLogin} onAdminLogin={handleAdminLogin} />
   }
 
   if (isAdmin) {
-    return <AdminConsole username={username} sessionId={sessionId} onLogout={handleLogout} />
+    return <AdminConsole username={username} onLogout={handleLogout} />
   }
 
   const isChatDisabled = !chatStatus.enabled
