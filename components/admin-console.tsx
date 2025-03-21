@@ -21,6 +21,9 @@ import {
   PinOff,
   AlertTriangle,
   CheckCircle2,
+  UserPlus,
+  UserX,
+  Key,
 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmationDialog } from "./confirmation-dialog"
@@ -29,6 +32,14 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import Gun from "gun"
+import {
+  addAllowedManualLogin,
+  removeAllowedManualLogin,
+  subscribeToAllowedManualLogins,
+  subscribeToManualLoginAccounts,
+  type AllowedManualLogin,
+  type ManualLoginAccount,
+} from "@/utils/manual-login"
 
 // Initialize Gun
 const gun = Gun({
@@ -86,6 +97,10 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
   const [mutedUsers, setMutedUsers] = useState<Record<string, MutedUser>>({})
   const [chatStatus, setChatStatus] = useState<ChatStatus>({ enabled: true })
   const [disableReason, setDisableReason] = useState<string>("")
+  const [allowedManualLogins, setAllowedManualLogins] = useState<Record<string, AllowedManualLogin>>({})
+  const [manualLoginAccounts, setManualLoginAccounts] = useState<Record<string, ManualLoginAccount>>({})
+  const [newManualLoginId, setNewManualLoginId] = useState<string>("")
+  const [newManualLoginName, setNewManualLoginName] = useState<string>("")
   const { toast } = useToast()
 
   useEffect(() => {
@@ -162,6 +177,17 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
         setChatStatus({ enabled: true })
       }
     })
+
+    // Subscribe to allowed manual logins
+    const unsubscribeAllowedLogins = subscribeToAllowedManualLogins(setAllowedManualLogins)
+
+    // Subscribe to manual login accounts
+    const unsubscribeManualAccounts = subscribeToManualLoginAccounts(setManualLoginAccounts)
+
+    return () => {
+      unsubscribeAllowedLogins()
+      unsubscribeManualAccounts()
+    }
   }, [])
 
   const handleDeleteMessage = (id: string) => {
@@ -367,11 +393,86 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
     setDisableReason("")
   }
 
+  const handleAddManualLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!newManualLoginId.trim() || !newManualLoginName.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please provide both ID and name.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check if ID is already in the allowed list
+    if (allowedManualLogins[newManualLoginId]) {
+      toast({
+        title: "ID already exists",
+        description: "This ID is already in the allowed list.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check if ID is already registered as an account
+    if (manualLoginAccounts[newManualLoginId]) {
+      toast({
+        title: "Account already exists",
+        description: "An account with this ID already exists.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await addAllowedManualLogin(newManualLoginId, newManualLoginName, username)
+
+      toast({
+        title: "ID added",
+        description: `${newManualLoginName} (ID: ${newManualLoginId}) can now create an account.`,
+      })
+
+      // Clear form
+      setNewManualLoginId("")
+      setNewManualLoginName("")
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add ID to allowed list.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRemoveManualLogin = async (id: string) => {
+    try {
+      await removeAllowedManualLogin(id)
+
+      toast({
+        title: "ID removed",
+        description: "ID has been removed from the allowed list.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove ID from allowed list.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const isMessagePinned = (messageId: string) => {
     return pinnedMessages.some((pm) => pm.messageId === messageId)
   }
 
   const sortedActiveUsers = Array.from(activeUsers).sort()
+
+  // Sort allowed manual logins by added time (newest first)
+  const sortedAllowedLogins = Object.values(allowedManualLogins).sort((a, b) => b.addedAt - a.addedAt)
+
+  // Sort manual login accounts by creation time (newest first)
+  const sortedManualAccounts = Object.values(manualLoginAccounts).sort((a, b) => b.createdAt - a.createdAt)
 
   return (
     <div className="container mx-auto max-w-4xl p-4">
@@ -403,7 +504,7 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
         </CardHeader>
 
         <Tabs defaultValue="messages" className="flex flex-col flex-1">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="pinned">
               Pinned Messages
@@ -414,6 +515,14 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
               )}
             </TabsTrigger>
             <TabsTrigger value="users">User Management</TabsTrigger>
+            <TabsTrigger value="id-management">
+              ID Management
+              {sortedAllowedLogins.length > 0 && (
+                <span className="ml-2 rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-xs">
+                  {sortedAllowedLogins.length}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -596,6 +705,157 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
                 </div>
               )}
             </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="id-management" className="flex-1 flex flex-col">
+            <div className="mb-4">
+              <h3 className="text-lg font-medium">ID Management</h3>
+              <p className="text-sm text-muted-foreground">
+                Manage users who can log in without an ID card. Add their ID number and name to allow them to create an
+                account.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Add New ID</CardTitle>
+                </CardHeader>
+                <CardFooter>
+                  <form onSubmit={handleAddManualLogin} className="w-full space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="id-number">ID Number</Label>
+                      <Input
+                        id="id-number"
+                        placeholder="e.g. 2266995"
+                        value={newManualLoginId}
+                        onChange={(e) => setNewManualLoginId(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="full-name">Full Name</Label>
+                      <Input
+                        id="full-name"
+                        placeholder="e.g. John Smith"
+                        value={newManualLoginName}
+                        onChange={(e) => setNewManualLoginName(e.target.value)}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full">
+                      <UserPlus className="h-4 w-4 mr-1" /> Add ID to Allowed List
+                    </Button>
+                  </form>
+                </CardFooter>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Manual Login Statistics</CardTitle>
+                </CardHeader>
+                <CardFooter>
+                  <div className="w-full space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="rounded-lg border p-3 text-center">
+                        <p className="text-sm text-muted-foreground">Allowed IDs</p>
+                        <p className="text-2xl font-bold">{sortedAllowedLogins.length}</p>
+                      </div>
+                      <div className="rounded-lg border p-3 text-center">
+                        <p className="text-sm text-muted-foreground">Registered Accounts</p>
+                        <p className="text-2xl font-bold">{sortedManualAccounts.length}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-sm text-muted-foreground mb-1">Pending Registration</p>
+                      <p className="text-lg font-bold">{sortedAllowedLogins.length - sortedManualAccounts.length}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Users who can register but haven't yet</p>
+                    </div>
+                  </div>
+                </CardFooter>
+              </Card>
+            </div>
+
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="flex flex-col">
+                <CardHeader>
+                  <CardTitle className="text-base">Allowed IDs</CardTitle>
+                </CardHeader>
+                <ScrollArea className="flex-1 px-4 pb-4">
+                  {sortedAllowedLogins.length === 0 ? (
+                    <div className="flex items-center justify-center h-32 text-muted-foreground">
+                      No IDs have been added to the allowed list.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {sortedAllowedLogins.map((login) => (
+                        <div key={login.id} className="flex items-center justify-between rounded-lg border p-3">
+                          <div>
+                            <div className="font-medium">{login.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              ID: {login.id}
+                              {!manualLoginAccounts[login.id] && (
+                                <span className="ml-2 text-yellow-600 dark:text-yellow-400">(Not registered yet)</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Added by {login.addedBy} on {new Date(login.addedAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveManualLogin(login.id)}
+                            disabled={!!manualLoginAccounts[login.id]}
+                            title={
+                              manualLoginAccounts[login.id]
+                                ? "Cannot remove registered accounts"
+                                : "Remove from allowed list"
+                            }
+                          >
+                            <UserX className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </Card>
+
+              <Card className="flex flex-col">
+                <CardHeader>
+                  <CardTitle className="text-base">Registered Accounts</CardTitle>
+                </CardHeader>
+                <ScrollArea className="flex-1 px-4 pb-4">
+                  {sortedManualAccounts.length === 0 ? (
+                    <div className="flex items-center justify-center h-32 text-muted-foreground">
+                      No users have registered accounts yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {sortedManualAccounts.map((account) => (
+                        <div key={account.id} className="flex items-center justify-between rounded-lg border p-3">
+                          <div>
+                            <div className="font-medium">{account.name}</div>
+                            <div className="text-sm text-muted-foreground">ID: {account.id}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Registered on {new Date(account.createdAt).toLocaleDateString()}
+                              {account.lastLogin && (
+                                <>
+                                  <span className="mx-1">•</span>
+                                  Last login: {new Date(account.lastLogin).toLocaleString()}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center text-sm text-green-600 dark:text-green-400">
+                            <Key className="h-4 w-4 mr-1" /> Active
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="settings" className="flex-1 flex flex-col">
