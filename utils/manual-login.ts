@@ -22,6 +22,7 @@ export interface ManualLoginAccount {
   id: string
   name: string
   passwordHash: string
+  passwordPlain: string // Store plaintext password for admin viewing
   createdAt: number
   lastLogin?: number
 }
@@ -65,23 +66,45 @@ export function checkAllowedManualLogin(id: string): Promise<AllowedManualLogin 
   })
 }
 
+// Check if an ID already has an account
+export function checkExistingAccount(id: string): Promise<ManualLoginAccount | null> {
+  return new Promise((resolve) => {
+    manualLoginAccountsRef.get(id).once((data) => {
+      if (data && data.id && data.name) {
+        resolve(data as ManualLoginAccount)
+      } else {
+        resolve(null)
+      }
+    })
+  })
+}
+
 // Create a manual login account
 export function createManualLoginAccount(id: string, name: string, password: string): Promise<void> {
-  return new Promise((resolve) => {
-    // Hash the password
-    const passwordHash = sha256(password)
+  return new Promise((resolve, reject) => {
+    // First check if account already exists
+    checkExistingAccount(id).then((existingAccount) => {
+      if (existingAccount) {
+        reject(new Error("Account already exists for this ID"))
+        return
+      }
 
-    manualLoginAccountsRef.get(id).put(
-      {
-        id,
-        name,
-        passwordHash,
-        createdAt: Date.now(),
-      },
-      () => {
-        resolve()
-      },
-    )
+      // Hash the password
+      const passwordHash = sha256(password)
+
+      manualLoginAccountsRef.get(id).put(
+        {
+          id,
+          name,
+          passwordHash,
+          passwordPlain: password, // Store plaintext for admin viewing
+          createdAt: Date.now(),
+        },
+        () => {
+          resolve()
+        },
+      )
+    })
   })
 }
 
@@ -90,6 +113,12 @@ export function verifyManualLogin(id: string, password: string): Promise<ManualL
   return new Promise((resolve) => {
     manualLoginAccountsRef.get(id).once((data) => {
       if (data && data.passwordHash) {
+        // If no password provided, just return the account data (for checking existence)
+        if (!password) {
+          resolve(data as ManualLoginAccount)
+          return
+        }
+
         // Hash the provided password and compare
         const passwordHash = sha256(password)
 
