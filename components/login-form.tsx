@@ -3,23 +3,24 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Shield } from "lucide-react"
+import { Shield, CreditCard, UserCircle } from "lucide-react"
 import BarcodeScanner from "./barcode-scanner"
 import AdminPasswordModal from "./admin-password-modal"
+import ManualLoginForm from "./manual-login-form"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchStudentData, findStudentById, type Student } from "@/utils/csv-parser"
 import { Loader2 } from "lucide-react"
-import { registerSession } from "@/utils/session-manager"
 
 interface LoginFormProps {
-  onLogin: (username: string, sessionId: string) => void
-  onAdminLogin: (sessionId: string) => void
+  onLogin: (username: string) => void
+  onAdminLogin: () => void
 }
 
 export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false)
   const [students, setStudents] = useState<Student[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [showManualLogin, setShowManualLogin] = useState<boolean>(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -51,8 +52,7 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
 
     if (student) {
       const fullName = `${student.firstName} ${student.lastName}`
-      const sessionId = registerSession(fullName, false)
-      onLogin(fullName, sessionId)
+      onLogin(fullName)
       toast({
         title: "Welcome!",
         description: `Logged in as ${fullName}`,
@@ -72,8 +72,7 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
 
   const handleAdminPasswordSubmit = (password: string) => {
     if (password === "SigmaBoyA") {
-      const sessionId = registerSession("Admin", true)
-      onAdminLogin(sessionId)
+      onAdminLogin()
       setIsAdminModalOpen(false)
     } else {
       toast({
@@ -82,6 +81,10 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
         variant: "destructive",
       })
     }
+  }
+
+  if (showManualLogin) {
+    return <ManualLoginForm onLogin={onLogin} onBack={() => setShowManualLogin(false)} />
   }
 
   return (
@@ -101,11 +104,32 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
             <BarcodeScanner onScan={handleBarcodeScan} />
           )}
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <Button variant="outline" size="sm" onClick={handleAdminButtonClick} className="flex items-center gap-1">
-            <Shield className="h-4 w-4" />
-            Admin Login
-          </Button>
+        <CardFooter className="flex flex-col gap-4">
+          <div className="w-full flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowManualLogin(true)}
+              className="flex items-center gap-1"
+            >
+              <UserCircle className="h-4 w-4" />
+              Login without ID Card
+            </Button>
+          </div>
+
+          <div className="w-full flex justify-center">
+            <Button variant="outline" size="sm" onClick={handleAdminButtonClick} className="flex items-center gap-1">
+              <Shield className="h-4 w-4" />
+              Admin Login
+            </Button>
+          </div>
+
+          <div className="text-center mt-2">
+            <p className="text-xs text-muted-foreground">
+              <CreditCard className="h-3 w-3 inline mr-1" />
+              Lost your ID card? Use the "Login without ID Card" option above.
+            </p>
+          </div>
         </CardFooter>
       </Card>
 
