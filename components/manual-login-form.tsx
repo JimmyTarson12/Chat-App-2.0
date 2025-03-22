@@ -97,6 +97,14 @@ export default function ManualLoginForm({ onLogin, onBack }: ManualLoginFormProp
     setIsLoading(true)
 
     try {
+      // Check again if ID is still allowed (in case admin removed it)
+      const allowedLogin = await checkAllowedManualLogin(id)
+      if (!allowedLogin) {
+        setError("This ID is no longer authorized for manual login. Please contact an administrator.")
+        setIsLoading(false)
+        return
+      }
+
       await createManualLoginAccount(id, name, password)
 
       toast({
@@ -126,7 +134,25 @@ export default function ManualLoginForm({ onLogin, onBack }: ManualLoginFormProp
     setIsLoading(true)
 
     try {
+      // First check if ID is still allowed (in case admin removed it)
+      const allowedLogin = await checkAllowedManualLogin(id)
+
+      // Verify login credentials
       const account = await verifyManualLogin(id, password)
+
+      if (!allowedLogin && !account) {
+        // ID is not allowed and no account exists
+        setError("This ID is not authorized for manual login. Please contact an administrator.")
+        setIsLoading(false)
+        return
+      }
+
+      if (!allowedLogin && account) {
+        // ID was removed by admin but account exists
+        setError("Your account has been disabled by an administrator.")
+        setIsLoading(false)
+        return
+      }
 
       if (account) {
         // Login successful
