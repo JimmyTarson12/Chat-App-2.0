@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardFooter, CardContent } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Trash2,
@@ -24,6 +24,9 @@ import {
   UserPlus,
   UserX,
   Key,
+  Lock,
+  Unlock,
+  Shield,
 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmationDialog } from "./confirmation-dialog"
@@ -34,9 +37,10 @@ import { Textarea } from "@/components/ui/textarea"
 import Gun from "gun"
 import {
   addAllowedManualLogin,
-  removeAllowedManualLogin,
+  removeManualLogin,
   subscribeToAllowedManualLogins,
   subscribeToManualLoginAccounts,
+  verifyAdminPassword,
   type AllowedManualLogin,
   type ManualLoginAccount,
 } from "@/utils/manual-login"
@@ -101,6 +105,9 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
   const [manualLoginAccounts, setManualLoginAccounts] = useState<Record<string, ManualLoginAccount>>({})
   const [newManualLoginId, setNewManualLoginId] = useState<string>("")
   const [newManualLoginName, setNewManualLoginName] = useState<string>("")
+  const [adminPassword, setAdminPassword] = useState<string>("")
+  const [isAdminVerified, setIsAdminVerified] = useState<boolean>(false)
+  const [adminPasswordError, setAdminPasswordError] = useState<string>("")
   const { toast } = useToast()
 
   useEffect(() => {
@@ -393,6 +400,27 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
     setDisableReason("")
   }
 
+  const handleVerifyAdminPassword = (e: React.FormEvent) => {
+    e.preventDefault()
+    setAdminPasswordError("")
+
+    if (!adminPassword) {
+      setAdminPasswordError("Please enter the admin password")
+      return
+    }
+
+    if (verifyAdminPassword(adminPassword)) {
+      setIsAdminVerified(true)
+      setAdminPassword("")
+      toast({
+        title: "Access granted",
+        description: "You can now add new IDs to the system.",
+      })
+    } else {
+      setAdminPasswordError("Incorrect password")
+    }
+  }
+
   const handleAddManualLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -447,19 +475,27 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
 
   const handleRemoveManualLogin = async (id: string) => {
     try {
-      await removeAllowedManualLogin(id)
+      await removeManualLogin(id)
 
       toast({
         title: "ID removed",
-        description: "ID has been removed from the allowed list.",
+        description: "ID has been removed from the system.",
       })
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to remove ID from allowed list.",
+        description: "Failed to remove ID from the system.",
         variant: "destructive",
       })
     }
+  }
+
+  const handleLogoutFromIDManagement = () => {
+    setIsAdminVerified(false)
+    toast({
+      title: "Logged out",
+      description: "You have been logged out of ID management.",
+    })
   }
 
   const isMessagePinned = (messageId: string) => {
@@ -716,63 +752,96 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <Card>
+            {!isAdminVerified ? (
+              <Card className="mb-4">
                 <CardHeader>
-                  <CardTitle className="text-base">Add New ID</CardTitle>
+                  <CardTitle className="text-base flex items-center">
+                    <Lock className="h-4 w-4 mr-2" /> Admin Authentication Required
+                  </CardTitle>
                 </CardHeader>
-                <CardFooter>
-                  <form onSubmit={handleAddManualLogin} className="w-full space-y-4">
+                <CardContent>
+                  <form onSubmit={handleVerifyAdminPassword} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="id-number">ID Number</Label>
+                      <Label htmlFor="admin-password">Enter Admin Password</Label>
                       <Input
-                        id="id-number"
-                        placeholder="e.g. 2266995"
-                        value={newManualLoginId}
-                        onChange={(e) => setNewManualLoginId(e.target.value)}
+                        id="admin-password"
+                        type="password"
+                        placeholder="Enter password to manage IDs"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="full-name">Full Name</Label>
-                      <Input
-                        id="full-name"
-                        placeholder="e.g. John Smith"
-                        value={newManualLoginName}
-                        onChange={(e) => setNewManualLoginName(e.target.value)}
-                      />
+                      {adminPasswordError && <p className="text-sm text-destructive">{adminPasswordError}</p>}
                     </div>
                     <Button type="submit" className="w-full">
-                      <UserPlus className="h-4 w-4 mr-1" /> Add ID to Allowed List
+                      <Shield className="h-4 w-4 mr-2" /> Verify Password
                     </Button>
                   </form>
-                </CardFooter>
+                </CardContent>
               </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-base flex items-center">
+                      <Unlock className="h-4 w-4 mr-2" /> Add New ID
+                    </CardTitle>
+                    <Button variant="outline" size="sm" onClick={handleLogoutFromIDManagement}>
+                      <Lock className="h-4 w-4 mr-1" /> Lock
+                    </Button>
+                  </CardHeader>
+                  <CardFooter>
+                    <form onSubmit={handleAddManualLogin} className="w-full space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="id-number">ID Number</Label>
+                        <Input
+                          id="id-number"
+                          placeholder="e.g. 2266995"
+                          value={newManualLoginId}
+                          onChange={(e) => setNewManualLoginId(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="full-name">Full Name</Label>
+                        <Input
+                          id="full-name"
+                          placeholder="e.g. John Smith"
+                          value={newManualLoginName}
+                          onChange={(e) => setNewManualLoginName(e.target.value)}
+                        />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        <UserPlus className="h-4 w-4 mr-1" /> Add ID to Allowed List
+                      </Button>
+                    </form>
+                  </CardFooter>
+                </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Manual Login Statistics</CardTitle>
-                </CardHeader>
-                <CardFooter>
-                  <div className="w-full space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="rounded-lg border p-3 text-center">
-                        <p className="text-sm text-muted-foreground">Allowed IDs</p>
-                        <p className="text-2xl font-bold">{sortedAllowedLogins.length}</p>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Manual Login Statistics</CardTitle>
+                  </CardHeader>
+                  <CardFooter>
+                    <div className="w-full space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-sm text-muted-foreground">Allowed IDs</p>
+                          <p className="text-2xl font-bold">{sortedAllowedLogins.length}</p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-sm text-muted-foreground">Registered Accounts</p>
+                          <p className="text-2xl font-bold">{sortedManualAccounts.length}</p>
+                        </div>
                       </div>
-                      <div className="rounded-lg border p-3 text-center">
-                        <p className="text-sm text-muted-foreground">Registered Accounts</p>
-                        <p className="text-2xl font-bold">{sortedManualAccounts.length}</p>
+                      <div className="rounded-lg border p-3">
+                        <p className="text-sm text-muted-foreground mb-1">Pending Registration</p>
+                        <p className="text-lg font-bold">{sortedAllowedLogins.length - sortedManualAccounts.length}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Users who can register but haven't yet</p>
                       </div>
                     </div>
-                    <div className="rounded-lg border p-3">
-                      <p className="text-sm text-muted-foreground mb-1">Pending Registration</p>
-                      <p className="text-lg font-bold">{sortedAllowedLogins.length - sortedManualAccounts.length}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Users who can register but haven't yet</p>
-                    </div>
-                  </div>
-                </CardFooter>
-              </Card>
-            </div>
+                  </CardFooter>
+                </Card>
+              </div>
+            )}
 
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card className="flex flex-col">
@@ -804,12 +873,7 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
                             variant="outline"
                             size="sm"
                             onClick={() => handleRemoveManualLogin(login.id)}
-                            disabled={!!manualLoginAccounts[login.id]}
-                            title={
-                              manualLoginAccounts[login.id]
-                                ? "Cannot remove registered accounts"
-                                : "Remove from allowed list"
-                            }
+                            title="Remove from system"
                           >
                             <UserX className="h-4 w-4" />
                           </Button>
@@ -851,8 +915,16 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center text-sm text-green-600 dark:text-green-400">
-                            <Key className="h-4 w-4 mr-1" /> Active
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRemoveManualLogin(account.id)}
+                              className="text-red-500"
+                              title="Remove account and block access"
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       ))}
