@@ -44,12 +44,16 @@ export function addAllowedManualLogin(id: string, name: string, adminName: strin
   })
 }
 
-// Remove an ID from the allowed list
-export function removeAllowedManualLogin(id: string): Promise<void> {
+// Remove an ID from the allowed list and its associated account if it exists
+export function removeManualLogin(id: string): Promise<void> {
   return new Promise((resolve) => {
-    allowedManualLoginsRef.get(id).put(null, () => {
-      resolve()
-    })
+    // Remove from allowed list
+    allowedManualLoginsRef.get(id).put(null)
+
+    // Also remove any associated account
+    manualLoginAccountsRef.get(id).put(null)
+
+    resolve()
   })
 }
 
@@ -209,4 +213,11 @@ export function validatePassword(password: string): { valid: boolean; message: s
   }
 
   return { valid: true, message: "Password is strong" }
+}
+
+// Verify admin password for ID management
+export function verifyAdminPassword(password: string): boolean {
+  const obfuscatedParts = ["4d", "79", "70", "72", "6f", "49", "73", "48", "65", "72", "65"]
+  const expectedPassword = obfuscatedParts.map((part) => String.fromCharCode(Number.parseInt(part, 16))).join("")
+  return password === expectedPassword
 }
