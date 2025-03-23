@@ -44,6 +44,7 @@ import {
   type AllowedManualLogin,
   type ManualLoginAccount,
 } from "@/utils/manual-login"
+import { Analytics } from "@/utils/analytics"
 
 // Initialize Gun
 const gun = Gun({
@@ -279,6 +280,12 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
         timestamp: Date.now(),
       },
     }))
+
+    if (isMuted) {
+      Analytics.trackUserUnmuted(user)
+    } else {
+      Analytics.trackUserMuted(user)
+    }
   }
 
   const handleDeleteAllMessages = () => {
@@ -345,6 +352,7 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
     if (existingPin) {
       // Unpin the message
       pinnedMessagesRef.get(existingPin.id).put(null)
+      Analytics.trackMessageUnpinned()
 
       toast({
         title: "Message unpinned",
@@ -362,6 +370,7 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
       }
 
       pinnedMessagesRef.set(pinnedMessage)
+      Analytics.trackMessagePinned()
 
       toast({
         title: "Message pinned",
@@ -379,6 +388,7 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
         disabledAt: Date.now(),
         reason: disableReason.trim() || "Maintenance",
       })
+      Analytics.trackChatDisabled(disableReason.trim() || "Maintenance")
 
       toast({
         title: "Chat disabled",
@@ -389,6 +399,7 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
       chatStatusRef.put({
         enabled: true,
       })
+      Analytics.trackChatEnabled()
 
       toast({
         title: "Chat enabled",
@@ -455,6 +466,7 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
 
     try {
       await addAllowedManualLogin(newManualLoginId, newManualLoginName, username)
+      Analytics.trackIdAdded()
 
       toast({
         title: "ID added",
@@ -476,6 +488,7 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
   const handleRemoveManualLogin = async (id: string) => {
     try {
       await removeManualLogin(id)
+      Analytics.trackIdRemoved()
 
       toast({
         title: "ID removed",
