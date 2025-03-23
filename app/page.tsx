@@ -13,6 +13,7 @@ import LoginForm from "@/components/login-form"
 import ChatMessage from "@/components/chat-message"
 import AdminConsole from "@/components/admin-console"
 import Gun from "gun"
+import { Analytics } from "@/utils/analytics"
 
 // Initialize Gun
 const gun = Gun({
@@ -168,6 +169,7 @@ export default function Home() {
     }
 
     messagesRef.set(messageData)
+    Analytics.trackMessageSent(isAdmin)
     setMessage("")
   }
 
