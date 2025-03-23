@@ -15,6 +15,7 @@ import {
   verifyManualLogin,
   validatePassword,
 } from "@/utils/manual-login"
+import { Analytics } from "@/utils/analytics"
 
 interface ManualLoginFormProps {
   onLogin: (username: string) => void
@@ -106,6 +107,7 @@ export default function ManualLoginForm({ onLogin, onBack }: ManualLoginFormProp
       }
 
       await createManualLoginAccount(id, name, password)
+      Analytics.trackAccountCreated()
 
       toast({
         title: "Account created",
@@ -114,6 +116,7 @@ export default function ManualLoginForm({ onLogin, onBack }: ManualLoginFormProp
 
       // Log the user in
       onLogin(name)
+      Analytics.trackLogin("manual")
     } catch (error) {
       console.error("Error creating account:", error)
       setError("An error occurred while creating your account. Please try again.")
@@ -156,6 +159,7 @@ export default function ManualLoginForm({ onLogin, onBack }: ManualLoginFormProp
 
       if (account) {
         // Login successful
+        Analytics.trackLogin("manual")
         toast({
           title: "Login successful",
           description: `Welcome back, ${account.name}!`,
