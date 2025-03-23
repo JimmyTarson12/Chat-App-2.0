@@ -10,6 +10,7 @@ import ManualLoginForm from "./manual-login-form"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchStudentData, findStudentById, type Student } from "@/utils/csv-parser"
 import { Loader2 } from "lucide-react"
+import { Analytics } from "@/utils/analytics"
 
 interface LoginFormProps {
   onLogin: (username: string) => void
@@ -53,6 +54,7 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
     if (student) {
       const fullName = `${student.firstName} ${student.lastName}`
       onLogin(fullName)
+      Analytics.trackLogin("id_card")
       toast({
         title: "Welcome!",
         description: `Logged in as ${fullName}`,
@@ -73,6 +75,7 @@ export default function LoginForm({ onLogin, onAdminLogin }: LoginFormProps) {
   const handleAdminPasswordSubmit = (password: string) => {
     if (password === "SigmaBoyA") {
       onAdminLogin()
+      Analytics.trackAdminLogin()
       setIsAdminModalOpen(false)
     } else {
       toast({
