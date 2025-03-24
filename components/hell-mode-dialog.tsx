@@ -43,6 +43,8 @@ export default function HellModeDialog({ isOpen, onClose, username, adminName }:
 
   const handleEnableHellMode = async () => {
     try {
+      console.log("Enabling Hell Mode for", username, "with messages:", demonMessages)
+
       await enableHellMode(username, adminName, demonMessages)
 
       toast({
