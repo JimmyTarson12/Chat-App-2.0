@@ -208,6 +208,25 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
     }
   }, [])
 
+  // Add a test function to directly check Hell Mode status
+  // Add this function to the component:
+
+  const testHellModeStatus = (username: string) => {
+    console.log("Current Hell Mode users:", hellModeUsers)
+    console.log("Is user in Hell Mode?", !!hellModeUsers[username])
+
+    // Force a refresh of the hellModeUsers state
+    subscribeToAllHellModeUsers((users) => {
+      console.log("Updated Hell Mode users:", users)
+      setHellModeUsers(users)
+    })
+
+    toast({
+      title: "Hell Mode Status",
+      description: `${username} is ${hellModeUsers[username] ? "in" : "not in"} Hell Mode.`,
+    })
+  }
+
   const handleDeleteMessage = (id: string) => {
     const messagesRef = gun.get("chat-messages")
     messagesRef.get(id).put(null)
@@ -542,6 +561,13 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
     try {
       await disableHellMode(username)
 
+      // Update local state immediately for UI feedback
+      setHellModeUsers((prev) => {
+        const newUsers = { ...prev }
+        delete newUsers[username]
+        return newUsers
+      })
+
       toast({
         title: "Hell Mode Disabled",
         description: `${username} has been released from hell.`,
@@ -796,7 +822,7 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
                             onClick={() => handleDisableHellMode(user)}
                             className="border-red-200 hover:bg-red-100 hover:text-red-600"
                           >
-                            <Flame className="h-4 w-4 mr-1 text-red-500" /> Release
+                            <Flame className="h-4 w-4 mr-1 text-red-500" /> Release from Hell
                           </Button>
                         ) : (
                           <Button
@@ -808,6 +834,16 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
                             <Flame className="h-4 w-4 mr-1 text-red-500" /> Hell Mode
                           </Button>
                         )}
+                        {/* Add a test button next to the Hell Mode button */}
+                        {/* Find the Hell Mode button section and add this button after it: */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => testHellModeStatus(user)}
+                          className="border-gray-200 hover:bg-gray-100"
+                        >
+                          Test Status
+                        </Button>
                       </div>
                     </div>
                   ))}
