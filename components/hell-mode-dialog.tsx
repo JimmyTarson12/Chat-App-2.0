@@ -58,7 +58,7 @@ export default function HellModeDialog({ isOpen, onClose, username, adminName }:
       console.error("Error enabling hell mode:", error)
       toast({
         title: "Error",
-        description: "Failed to enable Hell Mode.",
+        description: "Failed to enable Hell Mode. Check console for details.",
         variant: "destructive",
       })
     }
