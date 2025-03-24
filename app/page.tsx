@@ -18,6 +18,9 @@ import { subscribeToHellMode, processHellModeMessage, type HellModeSettings } fr
 import DemonMessage from "@/components/demon-message"
 import { motion } from "framer-motion"
 
+// Import the debug component at the top
+import HellModeDebug from "@/components/hell-mode-debug"
+
 // Initialize Gun
 const gun = Gun({
   peers: ["https://gun-manhattan.herokuapp.com/gun"], // Public relay server
@@ -154,12 +157,22 @@ export default function Home() {
   useEffect(() => {
     if (!username || isAdmin) return
 
+    console.log("Setting up Hell Mode subscription for", username)
+
     const unsubscribe = subscribeToHellMode(username, (settings) => {
+      console.log("Hell Mode update received:", settings)
       setIsInHellMode(!!settings)
       setHellModeSettings(settings)
+
+      if (settings) {
+        console.log("User is now in Hell Mode with settings:", settings)
+      } else {
+        console.log("User is not in Hell Mode")
+      }
     })
 
     return () => {
+      console.log("Cleaning up Hell Mode subscription")
       unsubscribe()
     }
   }, [username, isAdmin])
@@ -438,6 +451,9 @@ export default function Home() {
           </div>
         </>
       )}
+
+      {/* Debug component - only visible in development */}
+      {process.env.NODE_ENV === "development" && !isAdmin && username && <HellModeDebug username={username} />}
     </div>
   )
 }
