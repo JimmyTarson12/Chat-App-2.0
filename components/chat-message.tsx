@@ -58,7 +58,12 @@ export default function ChatMessage({ message, isCurrentUser, isHellMode = false
             </span>
           )}
         </div>
-        <p className={cn("mt-1", isHellMode && message.hellMode === "demonic" && "font-semibold text-red-400")}>
+        <p
+          className={cn(
+            "mt-1",
+            isHellMode && message.hellMode && message.hellMode === "demonic" && "font-semibold text-red-400",
+          )}
+        >
           {message.text}
         </p>
       </div>
