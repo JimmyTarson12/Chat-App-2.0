@@ -19,32 +19,38 @@ export interface HellModeSettings {
 // Enable hell mode for a user
 export function enableHellMode(username: string, enabledBy: string, demonMessages: string[] = []): Promise<void> {
   return new Promise((resolve) => {
-    hellModeRef.get(username).put(
-      {
-        enabled: true,
-        enabledBy,
-        enabledAt: Date.now(),
-        demonMessages: demonMessages.length > 0 ? demonMessages : getDefaultDemonMessages(),
-      },
-      () => {
-        resolve()
-      },
-    )
+    const settings = {
+      enabled: true,
+      enabledBy,
+      enabledAt: Date.now(),
+      demonMessages: demonMessages.length > 0 ? demonMessages : getDefaultDemonMessages(),
+    }
+
+    // Use put with a callback to ensure the data is saved
+    hellModeRef.get(username).put(settings, (ack) => {
+      if (ack.err) {
+        console.error("Error enabling hell mode:", ack.err)
+      } else {
+        console.log("Hell mode enabled for", username)
+      }
+      resolve()
+    })
   })
 }
 
 // Disable hell mode for a user
 export function disableHellMode(username: string): Promise<void> {
   return new Promise((resolve) => {
-    hellModeRef.get(username).put(
-      {
-        enabled: false,
-        enabledAt: Date.now(),
-      },
-      () => {
-        resolve()
-      },
-    )
+    // Important: We need to set enabled: false, not null the entire object
+    // This ensures subscribers still get the update
+    hellModeRef.get(username).put({ enabled: false }, (ack) => {
+      if (ack.err) {
+        console.error("Error disabling hell mode:", ack.err)
+      } else {
+        console.log("Hell mode disabled for", username)
+      }
+      resolve()
+    })
   })
 }
 
@@ -90,8 +96,11 @@ export function subscribeToHellMode(
   username: string,
   callback: (settings: HellModeSettings | null) => void,
 ): () => void {
+  console.log("Subscribing to hell mode for", username)
+
   const handler = hellModeRef.get(username).on((data) => {
-    if (data && data.enabled) {
+    console.log("Hell mode update for", username, data)
+    if (data && data.enabled === true) {
       callback(data as HellModeSettings)
     } else {
       callback(null)
@@ -106,19 +115,21 @@ export function subscribeToHellMode(
 
 // Subscribe to all users in hell mode
 export function subscribeToAllHellModeUsers(callback: (users: Record<string, HellModeSettings>) => void): () => void {
+  let users: Record<string, HellModeSettings> = {}
+
   const handler = hellModeRef.map().on((data, username) => {
-    if (data && data.enabled) {
-      callback((prevUsers) => ({
-        ...prevUsers,
+    if (data && data.enabled === true) {
+      users = {
+        ...users,
         [username]: data as HellModeSettings,
-      }))
-    } else {
-      callback((prevUsers) => {
-        const newUsers = { ...prevUsers }
-        delete newUsers[username]
-        return newUsers
-      })
+      }
+    } else if (username in users) {
+      const newUsers = { ...users }
+      delete newUsers[username]
+      users = newUsers
     }
+
+    callback(users)
   })
 
   // Return unsubscribe function
