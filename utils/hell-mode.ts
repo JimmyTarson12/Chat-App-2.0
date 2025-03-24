@@ -75,16 +75,30 @@ export function enableHellMode(username: string, enabledBy: string, demonMessage
 export function disableHellMode(username: string): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
-      // Important: We need to set enabled: false, not null the entire object
-      // This ensures subscribers still get the update
-      hellModeRef.get(username).put({ enabled: false }, (ack) => {
-        if (ack.err) {
-          console.error("Error disabling hell mode:", ack.err)
-          reject(ack.err)
-        } else {
-          console.log("Hell mode disabled for", username)
+      // First get the current settings to preserve structure
+      hellModeRef.get(username).once((data) => {
+        if (!data) {
+          console.log("No hell mode data found for", username)
           resolve()
+          return
         }
+
+        // Update only the enabled flag to false
+        const updatedSettings = {
+          ...data,
+          enabled: false,
+        }
+
+        // Put the updated settings back
+        hellModeRef.get(username).put(updatedSettings, (ack) => {
+          if (ack.err) {
+            console.error("Error disabling hell mode:", ack.err)
+            reject(ack.err)
+          } else {
+            console.log("Hell mode disabled for", username)
+            resolve()
+          }
+        })
       })
     } catch (error) {
       console.error("Error in disableHellMode:", error)
