@@ -27,6 +27,7 @@ import {
   Lock,
   Unlock,
   Shield,
+  Flame,
 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmationDialog } from "./confirmation-dialog"
@@ -45,6 +46,8 @@ import {
   type ManualLoginAccount,
 } from "@/utils/manual-login"
 import { Analytics } from "@/utils/analytics"
+import { subscribeToAllHellModeUsers, disableHellMode, type HellModeSettings } from "@/utils/hell-mode"
+import HellModeDialog from "./hell-mode-dialog"
 
 // Initialize Gun
 const gun = Gun({
@@ -110,6 +113,9 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
   const [isAdminVerified, setIsAdminVerified] = useState<boolean>(false)
   const [adminPasswordError, setAdminPasswordError] = useState<string>("")
   const { toast } = useToast()
+  const [hellModeUsers, setHellModeUsers] = useState<Record<string, HellModeSettings>>({})
+  const [hellModeDialogOpen, setHellModeDialogOpen] = useState<boolean>(false)
+  const [selectedUserForHellMode, setSelectedUserForHellMode] = useState<string>("")
 
   useEffect(() => {
     // Subscribe to messages
@@ -192,9 +198,13 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
     // Subscribe to manual login accounts
     const unsubscribeManualAccounts = subscribeToManualLoginAccounts(setManualLoginAccounts)
 
+    // Subscribe to hell mode users
+    const unsubscribeHellMode = subscribeToAllHellModeUsers(setHellModeUsers)
+
     return () => {
       unsubscribeAllowedLogins()
       unsubscribeManualAccounts()
+      unsubscribeHellMode()
     }
   }, [])
 
@@ -523,6 +533,29 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
   // Sort manual login accounts by creation time (newest first)
   const sortedManualAccounts = Object.values(manualLoginAccounts).sort((a, b) => b.createdAt - a.createdAt)
 
+  const handleOpenHellModeDialog = (username: string) => {
+    setSelectedUserForHellMode(username)
+    setHellModeDialogOpen(true)
+  }
+
+  const handleDisableHellMode = async (username: string) => {
+    try {
+      await disableHellMode(username)
+
+      toast({
+        title: "Hell Mode Disabled",
+        description: `${username} has been released from hell.`,
+      })
+    } catch (error) {
+      console.error("Error disabling hell mode:", error)
+      toast({
+        title: "Error",
+        description: "Failed to disable Hell Mode.",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <div className="container mx-auto max-w-4xl p-4">
       <Card className="h-[calc(100vh-2rem)]">
@@ -733,27 +766,61 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
                             (Muted since {new Date(mutedUsers[user].timestamp).toLocaleString()})
                           </span>
                         )}
-                      </div>
-                      <Button
-                        variant={mutedUsers[user]?.muted ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleToggleMute(user)}
-                      >
-                        {mutedUsers[user]?.muted ? (
-                          <>
-                            <Volume2 className="h-4 w-4 mr-1" /> Unmute
-                          </>
-                        ) : (
-                          <>
-                            <VolumeX className="h-4 w-4 mr-1" /> Mute
-                          </>
+                        {hellModeUsers[user] && (
+                          <span className="ml-2 text-xs text-red-600 flex items-center">
+                            <Flame className="h-3 w-3 mr-1" /> Hell Mode Active
+                          </span>
                         )}
-                      </Button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant={mutedUsers[user]?.muted ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleToggleMute(user)}
+                        >
+                          {mutedUsers[user]?.muted ? (
+                            <>
+                              <Volume2 className="h-4 w-4 mr-1" /> Unmute
+                            </>
+                          ) : (
+                            <>
+                              <VolumeX className="h-4 w-4 mr-1" /> Mute
+                            </>
+                          )}
+                        </Button>
+
+                        {hellModeUsers[user] ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDisableHellMode(user)}
+                            className="border-red-200 hover:bg-red-100 hover:text-red-600"
+                          >
+                            <Flame className="h-4 w-4 mr-1 text-red-500" /> Release
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenHellModeDialog(user)}
+                            className="border-red-200 hover:bg-red-100 hover:text-red-600"
+                          >
+                            <Flame className="h-4 w-4 mr-1 text-red-500" /> Hell Mode
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </ScrollArea>
+
+            <HellModeDialog
+              isOpen={hellModeDialogOpen}
+              onClose={() => setHellModeDialogOpen(false)}
+              username={selectedUserForHellMode}
+              adminName={username}
+            />
           </TabsContent>
 
           <TabsContent value="id-management" className="flex-1 flex flex-col">
