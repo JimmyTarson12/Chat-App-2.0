@@ -2,18 +2,21 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Loader2, AlertCircle, Pin, AlertTriangle } from "lucide-react"
+import { Loader2, AlertCircle, Pin, AlertTriangle, Flame } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import LoginForm from "@/components/login-form"
 import ChatMessage from "@/components/chat-message"
 import AdminConsole from "@/components/admin-console"
 import Gun from "gun"
 import { Analytics } from "@/utils/analytics"
+import { subscribeToHellMode, processHellModeMessage, type HellModeSettings } from "@/utils/hell-mode"
+import DemonMessage from "@/components/demon-message"
+import { motion } from "framer-motion"
 
 // Initialize Gun
 const gun = Gun({
@@ -53,6 +56,10 @@ export default function Home() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false)
   const [isMuted, setIsMuted] = useState<boolean>(false)
   const [chatStatus, setChatStatus] = useState<ChatStatus>({ enabled: true })
+  const [isInHellMode, setIsInHellMode] = useState<boolean>(false)
+  const [hellModeSettings, setHellModeSettings] = useState<HellModeSettings | null>(null)
+  const [demonMessage, setDemonMessage] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Check if username is stored in localStorage
@@ -143,6 +150,25 @@ export default function Home() {
     }
   }, [username, isAdmin])
 
+  // Add this useEffect for Hell Mode
+  useEffect(() => {
+    if (!username || isAdmin) return
+
+    const unsubscribe = subscribeToHellMode(username, (settings) => {
+      setIsInHellMode(!!settings)
+      setHellModeSettings(settings)
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [username, isAdmin])
+
+  // Scroll to bottom when new messages arrive or demon message appears
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages, demonMessage])
+
   const handleLogin = (name: string) => {
     setUsername(name)
     localStorage.setItem("chat-username", name)
@@ -160,17 +186,41 @@ export default function Home() {
 
     if (!message.trim() || isMuted || !chatStatus.enabled) return
 
+    // Process message if in hell mode
+    let messageToSend = message
+    let messageType = "normal"
+
+    if (isInHellMode && hellModeSettings) {
+      const processed = processHellModeMessage(message)
+      messageToSend = processed.text
+      messageType = processed.type
+
+      // Show a random demon message
+      if (hellModeSettings.demonMessages && hellModeSettings.demonMessages.length > 0) {
+        const randomIndex = Math.floor(Math.random() * hellModeSettings.demonMessages.length)
+        setDemonMessage(hellModeSettings.demonMessages[randomIndex])
+      } else if (hellModeSettings.customMessage) {
+        setDemonMessage(hellModeSettings.customMessage)
+      }
+    }
+
     // Add message to Gun
     const messagesRef = gun.get("chat-messages")
     const messageData = {
       sender: username,
-      text: message,
+      text: messageToSend,
       timestamp: Date.now(),
+      hellMode: isInHellMode ? messageType : undefined,
     }
 
     messagesRef.set(messageData)
     Analytics.trackMessageSent(isAdmin)
     setMessage("")
+  }
+
+  // Add this function to handle closing the demon message
+  const handleCloseDemonMessage = () => {
+    setDemonMessage(null)
   }
 
   const handleLogout = () => {
@@ -199,14 +249,44 @@ export default function Home() {
 
   const isChatDisabled = !chatStatus.enabled
 
+  // Define hell mode class names
+  const hellModeClasses = isInHellMode
+    ? {
+        container: "bg-black",
+        card: "bg-gray-900 border-red-800",
+        header: "border-red-800",
+        title: "text-red-500",
+        username: "text-red-400",
+        button: "bg-red-900 hover:bg-red-800 text-red-100",
+        scrollArea: "border-red-800 bg-gray-900",
+        input: "bg-gray-800 border-red-800 text-red-300 placeholder:text-red-700",
+      }
+    : {}
+
   return (
-    <div className="container mx-auto max-w-4xl p-4">
-      <Card className="h-[calc(100vh-2rem)]">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Massive Group Chat</CardTitle>
+    <div className={`container mx-auto max-w-4xl p-4 ${hellModeClasses.container || ""}`}>
+      <Card className={`h-[calc(100vh-2rem)] ${hellModeClasses.card || ""}`}>
+        <CardHeader
+          className={`flex flex-row items-center justify-between space-y-0 pb-2 ${hellModeClasses.header || ""}`}
+        >
+          <CardTitle className={hellModeClasses.title || ""}>
+            {isInHellMode ? (
+              <span className="flex items-center">
+                <Flame className="h-5 w-5 mr-2 text-red-600" />
+                Hellish Chat
+              </span>
+            ) : (
+              "Massive Group Chat"
+            )}
+          </CardTitle>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{username}</span>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
+            <span className={`text-sm font-medium ${hellModeClasses.username || ""}`}>{username}</span>
+            <Button
+              variant={isInHellMode ? "default" : "outline"}
+              size="sm"
+              onClick={handleLogout}
+              className={hellModeClasses.button || ""}
+            >
               Logout
             </Button>
           </div>
@@ -235,11 +315,24 @@ export default function Home() {
             </Alert>
           )}
 
+          {isInHellMode && (
+            <Alert variant="destructive" className="bg-red-900 border-red-700 text-red-200">
+              <Flame className="h-4 w-4 text-red-400" />
+              <AlertDescription className="text-red-200">
+                You have been sent to hell by an administrator. Your messages may be corrupted by demonic forces.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {pinnedMessages.length > 0 && (
-            <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 p-3">
+            <div
+              className={`rounded-md border ${isInHellMode ? "border-red-800 bg-gray-900" : "border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800"} p-3`}
+            >
               <div className="flex items-center gap-2 mb-2">
-                <Pin className="h-4 w-4 text-blue-500" />
-                <h3 className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                <Pin className={`h-4 w-4 ${isInHellMode ? "text-red-500" : "text-blue-500"}`} />
+                <h3
+                  className={`text-sm font-medium ${isInHellMode ? "text-red-400" : "text-blue-700 dark:text-blue-300"}`}
+                >
                   Pinned Message{pinnedMessages.length > 1 ? "s" : ""}
                 </h3>
               </div>
@@ -248,11 +341,16 @@ export default function Home() {
                   {pinnedMessages.map((msg) => (
                     <div key={msg.id} className="text-sm">
                       <div className="flex items-center gap-1">
-                        <span className="font-medium">
-                          {msg.sender === "GOD" ? <span className="text-red-500">{msg.sender}</span> : msg.sender}:
+                        <span className={`font-medium ${isInHellMode ? "text-red-400" : ""}`}>
+                          {msg.sender === "GOD" ? (
+                            <span className={isInHellMode ? "text-red-600" : "text-red-500"}>{msg.sender}</span>
+                          ) : (
+                            msg.sender
+                          )}
+                          :
                         </span>
                       </div>
-                      <p className="mt-0.5">{msg.text}</p>
+                      <p className={`mt-0.5 ${isInHellMode ? "text-red-300" : ""}`}>{msg.text}</p>
                     </div>
                   ))}
                 </div>
@@ -260,16 +358,24 @@ export default function Home() {
             </div>
           )}
 
-          <ScrollArea className="flex-1 rounded-md border p-4">
+          <ScrollArea className={`flex-1 rounded-md border p-4 ${hellModeClasses.scrollArea || ""}`}>
             {messages.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                No messages yet. Be the first to say hello!
+              <div
+                className={`flex h-full items-center justify-center ${isInHellMode ? "text-red-700" : "text-muted-foreground"}`}
+              >
+                {isInHellMode ? "The void awaits your first message..." : "No messages yet. Be the first to say hello!"}
               </div>
             ) : (
               <div className="flex flex-col gap-2">
                 {messages.map((msg) => (
-                  <ChatMessage key={msg.id} message={msg} isCurrentUser={msg.sender === username} />
+                  <ChatMessage
+                    key={msg.id}
+                    message={msg}
+                    isCurrentUser={msg.sender === username}
+                    isHellMode={isInHellMode}
+                  />
                 ))}
+                <div ref={messagesEndRef} />
               </div>
             )}
           </ScrollArea>
@@ -279,17 +385,59 @@ export default function Home() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={
-                isMuted ? "You have been muted" : isChatDisabled ? "Chat is currently disabled" : "Type your message..."
+                isMuted
+                  ? "You have been muted"
+                  : isChatDisabled
+                    ? "Chat is currently disabled"
+                    : isInHellMode
+                      ? "Type your message to the void..."
+                      : "Type your message..."
               }
-              className="flex-1"
+              className={`flex-1 ${hellModeClasses.input || ""}`}
               disabled={isMuted || isChatDisabled}
             />
-            <Button type="submit" disabled={isMuted || isChatDisabled}>
+            <Button
+              type="submit"
+              disabled={isMuted || isChatDisabled}
+              className={isInHellMode ? "bg-red-800 hover:bg-red-700 text-red-100" : ""}
+            >
               Send
             </Button>
           </form>
         </CardContent>
       </Card>
+
+      {demonMessage && <DemonMessage message={demonMessage} onClose={handleCloseDemonMessage} />}
+
+      {isInHellMode && (
+        <>
+          {/* Floating flames effect */}
+          <div className="fixed inset-0 pointer-events-none z-0">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute"
+                initial={{
+                  bottom: -20,
+                  left: `${Math.random() * 100}%`,
+                  opacity: 0.3 + Math.random() * 0.5,
+                }}
+                animate={{
+                  bottom: `${80 + Math.random() * 20}%`,
+                  left: `${Math.random() * 100}%`,
+                }}
+                transition={{
+                  duration: 10 + Math.random() * 20,
+                  repeat: Number.POSITIVE_INFINITY,
+                  repeatType: "loop",
+                }}
+              >
+                <Flame className="text-red-600/30 h-10 w-10" />
+              </motion.div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
