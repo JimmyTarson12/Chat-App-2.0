@@ -247,11 +247,16 @@ export default function Home() {
 
     // Add message to Gun
     const messagesRef = gun.get("chat-messages")
+    // Create message data without hellMode property first
     const messageData = {
       sender: username,
       text: messageToSend,
       timestamp: Date.now(),
-      hellMode: isInHellMode ? messageType : undefined,
+    }
+
+    // Only add hellMode property if user is in Hell Mode
+    if (isInHellMode) {
+      messageData.hellMode = messageType
     }
 
     messagesRef.set(messageData)
