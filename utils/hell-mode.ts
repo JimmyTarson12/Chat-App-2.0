@@ -196,6 +196,16 @@ export function getRandomDemonicMessage(): string {
     "I am always watching.",
     "The abyss stares back.",
     "Your soul burns eternally.",
+    "Your screams echo in the void.",
+    "Despair is your only companion now.",
+    "The shadows grow stronger with your fear.",
+    "Your nightmares are my playground.",
+    "I feast on your terror.",
+    "Your soul will never know peace.",
+    "The darkness has claimed you.",
+    "Your blood will boil for eternity.",
+    "Your mind belongs to me now.",
+    "There is no light where you're going.",
   ]
 
   return messages[Math.floor(Math.random() * messages.length)]
@@ -224,17 +234,17 @@ export function processHellModeMessage(originalMessage: string): {
 } {
   const random = Math.random()
 
-  // 40% chance of normal message
-  if (random < 0.4) {
+  // 30% chance of normal message
+  if (random < 0.3) {
     return { text: originalMessage, type: "normal" }
   }
 
   // 30% chance of randomized message
-  if (random < 0.7) {
+  if (random < 0.6) {
     return { text: randomizeText(originalMessage), type: "randomized" }
   }
 
-  // 30% chance of demonic message
+  // 40% chance of demonic message
   return { text: getRandomDemonicMessage(), type: "demonic" }
 }
 
