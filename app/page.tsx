@@ -209,9 +209,16 @@ export default function Home() {
       messageType = processed.type
 
       // Show a random demon message
-      if (hellModeSettings.demonMessages && hellModeSettings.demonMessages.length > 0) {
-        const randomIndex = Math.floor(Math.random() * hellModeSettings.demonMessages.length)
-        setDemonMessage(hellModeSettings.demonMessages[randomIndex])
+      if (hellModeSettings.demonMessages) {
+        // Handle both array and object formats
+        const messages = Array.isArray(hellModeSettings.demonMessages)
+          ? hellModeSettings.demonMessages
+          : Object.values(hellModeSettings.demonMessages as Record<string, string>)
+
+        if (messages.length > 0) {
+          const randomIndex = Math.floor(Math.random() * messages.length)
+          setDemonMessage(messages[randomIndex])
+        }
       } else if (hellModeSettings.customMessage) {
         setDemonMessage(hellModeSettings.customMessage)
       }
