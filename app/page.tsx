@@ -14,7 +14,12 @@ import ChatMessage from "@/components/chat-message"
 import AdminConsole from "@/components/admin-console"
 import Gun from "gun"
 import { Analytics } from "@/utils/analytics"
-import { subscribeToHellMode, processHellModeMessage, type HellModeSettings } from "@/utils/hell-mode"
+import {
+  subscribeToHellMode,
+  processHellModeMessage,
+  getRandomDemonicMessage,
+  type HellModeSettings,
+} from "@/utils/hell-mode"
 import DemonMessage from "@/components/demon-message"
 import { motion } from "framer-motion"
 
@@ -156,21 +161,34 @@ export default function Home() {
 
     console.log("Setting up Hell Mode subscription for", username)
 
-    const unsubscribe = subscribeToHellMode(username, (settings) => {
-      console.log("Hell Mode update received:", settings)
-      setIsInHellMode(!!settings)
-      setHellModeSettings(settings)
+    try {
+      const unsubscribe = subscribeToHellMode(username, (settings) => {
+        console.log("Hell Mode update received:", settings)
+        setIsInHellMode(!!settings)
+        setHellModeSettings(settings)
 
-      if (settings) {
-        console.log("User is now in Hell Mode with settings:", settings)
-      } else {
-        console.log("User is not in Hell Mode")
+        if (settings) {
+          console.log("User is now in Hell Mode with settings:", settings)
+          // Show a random demon message when hell mode is first enabled
+          if (settings.demonMessages && Array.isArray(settings.demonMessages) && settings.demonMessages.length > 0) {
+            const randomIndex = Math.floor(Math.random() * settings.demonMessages.length)
+            setDemonMessage(settings.demonMessages[randomIndex])
+          } else if (settings.customMessage) {
+            setDemonMessage(settings.customMessage)
+          } else {
+            setDemonMessage(getRandomDemonicMessage())
+          }
+        } else {
+          console.log("User is not in Hell Mode")
+        }
+      })
+
+      return () => {
+        console.log("Cleaning up Hell Mode subscription")
+        unsubscribe()
       }
-    })
-
-    return () => {
-      console.log("Cleaning up Hell Mode subscription")
-      unsubscribe()
+    } catch (error) {
+      console.error("Error setting up Hell Mode subscription:", error)
     }
   }, [username, isAdmin])
 
@@ -215,12 +233,15 @@ export default function Home() {
         if (messages.length > 0) {
           const randomIndex = Math.floor(Math.random() * messages.length)
           setDemonMessage(messages[randomIndex])
+        } else {
+          // Fallback to a random demonic message if no messages are defined
+          setDemonMessage(getRandomDemonicMessage())
         }
       } else if (hellModeSettings.customMessage) {
         setDemonMessage(hellModeSettings.customMessage)
       } else {
         // Fallback to a random demonic message if no messages are defined
-        // setDemonMessage(getRandomDemonicMessage())
+        setDemonMessage(getRandomDemonicMessage())
       }
     }
 
