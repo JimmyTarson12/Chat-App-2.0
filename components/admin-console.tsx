@@ -232,46 +232,6 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
   }
 
   // Add this function to the component
-  const debugHellMode = (username: string) => {
-    // Get a direct reference to the user's hell mode settings
-    const userHellModeRef = hellModeRef.get(username)
-
-    // Log the raw data
-    userHellModeRef.once((data) => {
-      console.log("Raw Hell Mode data for", username, ":", data)
-
-      // Try to manually enable hell mode with a simple object
-      const simpleSettings = {
-        enabled: true,
-        enabledBy: "Admin (Debug)",
-        enabledAt: Date.now(),
-        demonMessages: {
-          "0": "Debug demon message 1",
-          "1": "Debug demon message 2",
-          "2": "Debug demon message 3",
-        },
-      }
-
-      console.log("Attempting to set simple Hell Mode settings:", simpleSettings)
-
-      userHellModeRef.put(simpleSettings, (ack) => {
-        if (ack.err) {
-          console.error("Debug error:", ack.err)
-          toast({
-            title: "Debug Error",
-            description: `Error: ${ack.err}`,
-            variant: "destructive",
-          })
-        } else {
-          console.log("Debug settings applied successfully")
-          toast({
-            title: "Debug Success",
-            description: "Simple Hell Mode settings applied",
-          })
-        }
-      })
-    })
-  }
 
   const handleDeleteMessage = (id: string) => {
     const messagesRef = gun.get("chat-messages")
@@ -880,24 +840,6 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
                             <Flame className="h-4 w-4 mr-1 text-red-500" /> Hell Mode
                           </Button>
                         )}
-                        {/* Add a test button next to the Hell Mode button */}
-                        {/* Find the Hell Mode button section and add this button after it: */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => testHellModeStatus(user)}
-                          className="border-gray-200 hover:bg-gray-100"
-                        >
-                          Test Status
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => debugHellMode(user)}
-                          className="border-blue-200 hover:bg-blue-100"
-                        >
-                          Debug Fix
-                        </Button>
                       </div>
                     </div>
                   ))}
