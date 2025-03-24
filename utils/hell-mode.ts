@@ -12,19 +12,46 @@ export interface HellModeSettings {
   enabled: boolean
   enabledBy: string
   enabledAt: number
-  demonMessages: string[]
+  demonMessages: string[] | Record<string, string>
   customMessage?: string
+}
+
+// Convert array to Gun-friendly object
+function arrayToGunObject(arr: string[]): Record<string, string> {
+  return arr.reduce(
+    (obj, item, index) => {
+      obj[index.toString()] = item
+      return obj
+    },
+    {} as Record<string, string>,
+  )
+}
+
+// Convert Gun object back to array
+function gunObjectToArray(obj: Record<string, string> | undefined): string[] {
+  if (!obj) return []
+
+  return Object.keys(obj)
+    .map((key) => Number.parseInt(key))
+    .filter((key) => !isNaN(key))
+    .sort((a, b) => a - b)
+    .map((key) => obj[key.toString()])
 }
 
 // Enable hell mode for a user
 export function enableHellMode(username: string, enabledBy: string, demonMessages: string[] = []): Promise<void> {
   return new Promise((resolve) => {
+    // Convert array to Gun-friendly object
+    const messagesObj = arrayToGunObject(demonMessages.length > 0 ? demonMessages : getDefaultDemonMessages())
+
     const settings = {
       enabled: true,
       enabledBy,
       enabledAt: Date.now(),
-      demonMessages: demonMessages.length > 0 ? demonMessages : getDefaultDemonMessages(),
+      demonMessages: messagesObj,
     }
+
+    console.log("Saving Hell Mode settings:", settings)
 
     // Use put with a callback to ensure the data is saved
     hellModeRef.get(username).put(settings, (ack) => {
@@ -57,10 +84,13 @@ export function disableHellMode(username: string): Promise<void> {
 // Set custom demon messages for a user
 export function setDemonMessages(username: string, messages: string[]): Promise<void> {
   return new Promise((resolve) => {
+    // Convert array to Gun-friendly object
+    const messagesObj = arrayToGunObject(messages)
+
     hellModeRef
       .get(username)
       .get("demonMessages")
-      .put(messages, () => {
+      .put(messagesObj, () => {
         resolve()
       })
   })
@@ -83,6 +113,11 @@ export function checkHellMode(username: string): Promise<HellModeSettings | null
   return new Promise((resolve) => {
     hellModeRef.get(username).once((data) => {
       if (data && data.enabled) {
+        // Convert Gun object to array for demonMessages
+        if (data.demonMessages && typeof data.demonMessages === "object") {
+          data.demonMessages = gunObjectToArray(data.demonMessages as Record<string, string>)
+        }
+
         resolve(data as HellModeSettings)
       } else {
         resolve(null)
@@ -101,6 +136,11 @@ export function subscribeToHellMode(
   const handler = hellModeRef.get(username).on((data) => {
     console.log("Hell mode update for", username, data)
     if (data && data.enabled === true) {
+      // Convert Gun object to array for demonMessages
+      if (data.demonMessages && typeof data.demonMessages === "object") {
+        data.demonMessages = gunObjectToArray(data.demonMessages as Record<string, string>)
+      }
+
       callback(data as HellModeSettings)
     } else {
       callback(null)
@@ -119,6 +159,11 @@ export function subscribeToAllHellModeUsers(callback: (users: Record<string, Hel
 
   const handler = hellModeRef.map().on((data, username) => {
     if (data && data.enabled === true) {
+      // Convert Gun object to array for demonMessages
+      if (data.demonMessages && typeof data.demonMessages === "object") {
+        data.demonMessages = gunObjectToArray(data.demonMessages as Record<string, string>)
+      }
+
       users = {
         ...users,
         [username]: data as HellModeSettings,
