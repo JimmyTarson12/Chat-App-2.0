@@ -40,71 +40,101 @@ function gunObjectToArray(obj: Record<string, string> | undefined): string[] {
 
 // Enable hell mode for a user
 export function enableHellMode(username: string, enabledBy: string, demonMessages: string[] = []): Promise<void> {
-  return new Promise((resolve) => {
-    // Convert array to Gun-friendly object
-    const messagesObj = arrayToGunObject(demonMessages.length > 0 ? demonMessages : getDefaultDemonMessages())
+  return new Promise((resolve, reject) => {
+    try {
+      // Convert array to Gun-friendly object
+      const messagesObj = arrayToGunObject(demonMessages.length > 0 ? demonMessages : getDefaultDemonMessages())
 
-    const settings = {
-      enabled: true,
-      enabledBy,
-      enabledAt: Date.now(),
-      demonMessages: messagesObj,
-    }
-
-    console.log("Saving Hell Mode settings:", settings)
-
-    // Use put with a callback to ensure the data is saved
-    hellModeRef.get(username).put(settings, (ack) => {
-      if (ack.err) {
-        console.error("Error enabling hell mode:", ack.err)
-      } else {
-        console.log("Hell mode enabled for", username)
+      const settings = {
+        enabled: true,
+        enabledBy,
+        enabledAt: Date.now(),
+        demonMessages: messagesObj,
       }
-      resolve()
-    })
+
+      console.log("Saving Hell Mode settings:", settings)
+
+      // Use put with a callback to ensure the data is saved
+      hellModeRef.get(username).put(settings, (ack) => {
+        if (ack.err) {
+          console.error("Error enabling hell mode:", ack.err)
+          reject(ack.err)
+        } else {
+          console.log("Hell mode enabled for", username)
+          resolve()
+        }
+      })
+    } catch (error) {
+      console.error("Error in enableHellMode:", error)
+      reject(error)
+    }
   })
 }
 
 // Disable hell mode for a user
 export function disableHellMode(username: string): Promise<void> {
-  return new Promise((resolve) => {
-    // Important: We need to set enabled: false, not null the entire object
-    // This ensures subscribers still get the update
-    hellModeRef.get(username).put({ enabled: false }, (ack) => {
-      if (ack.err) {
-        console.error("Error disabling hell mode:", ack.err)
-      } else {
-        console.log("Hell mode disabled for", username)
-      }
-      resolve()
-    })
+  return new Promise((resolve, reject) => {
+    try {
+      // Important: We need to set enabled: false, not null the entire object
+      // This ensures subscribers still get the update
+      hellModeRef.get(username).put({ enabled: false }, (ack) => {
+        if (ack.err) {
+          console.error("Error disabling hell mode:", ack.err)
+          reject(ack.err)
+        } else {
+          console.log("Hell mode disabled for", username)
+          resolve()
+        }
+      })
+    } catch (error) {
+      console.error("Error in disableHellMode:", error)
+      reject(error)
+    }
   })
 }
 
 // Set custom demon messages for a user
 export function setDemonMessages(username: string, messages: string[]): Promise<void> {
-  return new Promise((resolve) => {
-    // Convert array to Gun-friendly object
-    const messagesObj = arrayToGunObject(messages)
+  return new Promise((resolve, reject) => {
+    try {
+      // Convert array to Gun-friendly object
+      const messagesObj = arrayToGunObject(messages)
 
-    hellModeRef
-      .get(username)
-      .get("demonMessages")
-      .put(messagesObj, () => {
-        resolve()
-      })
+      hellModeRef
+        .get(username)
+        .get("demonMessages")
+        .put(messagesObj, (ack) => {
+          if (ack.err) {
+            reject(ack.err)
+          } else {
+            resolve()
+          }
+        })
+    } catch (error) {
+      console.error("Error in setDemonMessages:", error)
+      reject(error)
+    }
   })
 }
 
 // Set a single custom message for a user
 export function setCustomMessage(username: string, message: string): Promise<void> {
-  return new Promise((resolve) => {
-    hellModeRef
-      .get(username)
-      .get("customMessage")
-      .put(message, () => {
-        resolve()
-      })
+  return new Promise((resolve, reject) => {
+    try {
+      hellModeRef
+        .get(username)
+        .get("customMessage")
+        .put(message, (ack) => {
+          if (ack.err) {
+            reject(ack.err)
+          } else {
+            resolve()
+          }
+        })
+    } catch (error) {
+      console.error("Error in setCustomMessage:", error)
+      reject(error)
+    }
   })
 }
 
@@ -115,7 +145,8 @@ export function checkHellMode(username: string): Promise<HellModeSettings | null
       if (data && data.enabled) {
         // Convert Gun object to array for demonMessages
         if (data.demonMessages && typeof data.demonMessages === "object") {
-          data.demonMessages = gunObjectToArray(data.demonMessages as Record<string, string>)
+          const messages = gunObjectToArray(data.demonMessages as Record<string, string>)
+          data.demonMessages = messages
         }
 
         resolve(data as HellModeSettings)
@@ -135,15 +166,22 @@ export function subscribeToHellMode(
 
   const handler = hellModeRef.get(username).on((data) => {
     console.log("Hell mode update for", username, data)
-    if (data && data.enabled === true) {
-      // Convert Gun object to array for demonMessages
-      if (data.demonMessages && typeof data.demonMessages === "object") {
-        data.demonMessages = gunObjectToArray(data.demonMessages as Record<string, string>)
+    try {
+      if (data && data.enabled === true) {
+        // Convert Gun object to array for demonMessages
+        if (data.demonMessages && typeof data.demonMessages === "object") {
+          const messages = gunObjectToArray(data.demonMessages as Record<string, string>)
+          const settingsCopy = { ...data, demonMessages: messages } as HellModeSettings
+          callback(settingsCopy)
+        } else {
+          callback(data as HellModeSettings)
+        }
+      } else {
+        callback(null)
       }
-
-      callback(data as HellModeSettings)
-    } else {
-      callback(null)
+    } catch (error) {
+      console.error("Error processing hell mode update:", error)
+      // Don't change the state if there's an error
     }
   })
 
@@ -158,23 +196,30 @@ export function subscribeToAllHellModeUsers(callback: (users: Record<string, Hel
   let users: Record<string, HellModeSettings> = {}
 
   const handler = hellModeRef.map().on((data, username) => {
-    if (data && data.enabled === true) {
-      // Convert Gun object to array for demonMessages
-      if (data.demonMessages && typeof data.demonMessages === "object") {
-        data.demonMessages = gunObjectToArray(data.demonMessages as Record<string, string>)
+    try {
+      if (data && data.enabled === true) {
+        // Convert Gun object to array for demonMessages
+        const processedData = { ...data } as HellModeSettings
+
+        if (data.demonMessages && typeof data.demonMessages === "object") {
+          processedData.demonMessages = gunObjectToArray(data.demonMessages as Record<string, string>)
+        }
+
+        users = {
+          ...users,
+          [username]: processedData,
+        }
+      } else if (username in users) {
+        const newUsers = { ...users }
+        delete newUsers[username]
+        users = newUsers
       }
 
-      users = {
-        ...users,
-        [username]: data as HellModeSettings,
-      }
-    } else if (username in users) {
-      const newUsers = { ...users }
-      delete newUsers[username]
-      users = newUsers
+      callback(users)
+    } catch (error) {
+      console.error("Error in subscribeToAllHellModeUsers:", error)
+      // Don't update users if there's an error
     }
-
-    callback(users)
   })
 
   // Return unsubscribe function
