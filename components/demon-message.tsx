@@ -30,13 +30,13 @@ export default function DemonMessage({ message, onClose }: DemonMessageProps) {
           exit={{ opacity: 0, y: -50 }}
           className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full"
         >
-          <div className="bg-black border border-red-600 text-red-500 p-4 rounded-md shadow-lg flex items-start gap-3">
+          <div className="bg-black border-2 border-red-600 text-red-500 p-4 rounded-md shadow-lg flex items-start gap-3">
             <div className="flex-shrink-0">
               <Flame className="h-6 w-6 text-red-600 animate-pulse" />
             </div>
             <div className="flex-1">
               <p className="font-medium text-red-400 mb-1">The Demon Speaks:</p>
-              <p className="text-red-300">{message}</p>
+              <p className="text-red-300 text-lg">{message}</p>
             </div>
           </div>
         </motion.div>
