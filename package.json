@@ -1,6 +1,6 @@
 {
   "name": "dunstan-chat",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -63,10 +63,12 @@
     "svelte": "latest",
     "vue": "latest",
     "vue-router": "latest",
+    "@emotion/is-prop-valid": "latest",
     "quagga": "latest",
+    "@vercel/analytics": "latest",
     "gun": "latest",
     "js-sha256": "latest",
-    "@vercel/analytics": "latest"
+    "framer-motion": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
