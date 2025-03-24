@@ -28,6 +28,8 @@ import {
   Unlock,
   Shield,
   Flame,
+  Settings2,
+  CalendarIcon,
 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmationDialog } from "./confirmation-dialog"
@@ -48,6 +50,9 @@ import {
 import { Analytics } from "@/utils/analytics"
 import { subscribeToAllHellModeUsers, disableHellMode, type HellModeSettings } from "@/utils/hell-mode"
 import HellModeDialog from "./hell-mode-dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
 
 // Initialize Gun
 const gun = Gun({
@@ -70,6 +75,8 @@ interface Message {
   sender: string
   text: string
   timestamp: number
+  customColor?: string
+  adminSent?: boolean
 }
 
 interface MutedUser {
@@ -120,6 +127,11 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
   const [hellModeUsers, setHellModeUsers] = useState<Record<string, HellModeSettings>>({})
   const [hellModeDialogOpen, setHellModeDialogOpen] = useState<boolean>(false)
   const [selectedUserForHellMode, setSelectedUserForHellMode] = useState<string>("")
+  const [customSender, setCustomSender] = useState<string>("GOD")
+  const [customColor, setCustomColor] = useState<string>("")
+  const [customDate, setCustomDate] = useState<Date | undefined>(new Date())
+  const [customTime, setCustomTime] = useState<string>(format(new Date(), "HH:mm"))
+  const [showMessageOptions, setShowMessageOptions] = useState<boolean>(false)
 
   useEffect(() => {
     // Subscribe to messages
@@ -286,15 +298,32 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
 
     if (!newMessage.trim()) return
 
-    // Add message to Gun as "GOD"
+    // Calculate timestamp from custom date and time
+    let timestamp = Date.now()
+    if (customDate) {
+      const [hours, minutes] = customTime.split(":").map(Number)
+      const customTimestamp = new Date(customDate)
+      customTimestamp.setHours(hours || 0)
+      customTimestamp.setMinutes(minutes || 0)
+      timestamp = customTimestamp.getTime()
+    }
+
+    // Add message to Gun
     const messagesRef = gun.get("chat-messages")
     const messageData = {
-      sender: "GOD",
+      sender: customSender,
       text: newMessage,
-      timestamp: Date.now(),
+      timestamp,
+      adminSent: true,
+    }
+
+    // Only add custom color if it's set
+    if (customColor) {
+      messageData.customColor = customColor
     }
 
     messagesRef.set(messageData)
+    Analytics.trackMessageSent(true)
     setNewMessage("")
   }
 
@@ -712,16 +741,192 @@ export default function AdminConsole({ username, onLogout }: AdminConsoleProps) 
             </ScrollArea>
 
             <CardFooter className="pt-4">
-              <form onSubmit={handleSendMessage} className="flex w-full gap-2">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Send a message as GOD..."
-                  className="flex-1"
-                />
-                <Button type="submit" className="bg-red-600 hover:bg-red-700">
-                  <Send className="h-4 w-4 mr-1" /> Send
-                </Button>
+              <form onSubmit={handleSendMessage} className="w-full space-y-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMessageOptions(!showMessageOptions)}
+                    className={showMessageOptions ? "bg-muted" : ""}
+                  >
+                    <Settings2 className="h-4 w-4 mr-1" />
+                    {showMessageOptions ? "Hide Options" : "Show Options"}
+                  </Button>
+
+                  {showMessageOptions && (
+                    <div className="flex items-center gap-2 ml-auto">
+                      <span className="text-xs text-muted-foreground">Sending as:</span>
+                      <span className="font-medium">{customSender}</span>
+
+                      {customColor && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">Color:</span>
+                          <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: customColor }}></div>
+                        </div>
+                      )}
+
+                      {customDate && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">Time:</span>
+                          <span className="text-xs">
+                            {format(customDate, "MMM d, yyyy")} {customTime}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {showMessageOptions && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-md bg-muted/30">
+                    <div className="space-y-2">
+                      <Label htmlFor="custom-sender">Sender Name</Label>
+                      <Input
+                        id="custom-sender"
+                        value={customSender}
+                        onChange={(e) => setCustomSender(e.target.value)}
+                        placeholder="Enter sender name"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="custom-color">Background Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="custom-color"
+                          value={customColor}
+                          onChange={(e) => setCustomColor(e.target.value)}
+                          placeholder="#ff0000 or red"
+                        />
+                        <div
+                          className="w-10 h-10 rounded border flex-shrink-0"
+                          style={{ backgroundColor: customColor || "transparent" }}
+                        ></div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 bg-red-600 text-white hover:bg-red-700 hover:text-white"
+                          onClick={() => setCustomColor("#ef4444")}
+                        >
+                          Red
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                          onClick={() => setCustomColor("#3b82f6")}
+                        >
+                          Blue
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 bg-green-600 text-white hover:bg-green-700 hover:text-white"
+                          onClick={() => setCustomColor("#22c55e")}
+                        >
+                          Green
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 bg-purple-600 text-white hover:bg-purple-700 hover:text-white"
+                          onClick={() => setCustomColor("#9333ea")}
+                        >
+                          Purple
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 bg-yellow-500 text-white hover:bg-yellow-600 hover:text-white"
+                          onClick={() => setCustomColor("#eab308")}
+                        >
+                          Yellow
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 bg-gray-800 text-white hover:bg-gray-900 hover:text-white"
+                          onClick={() => setCustomColor("#1f2937")}
+                        >
+                          Dark
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2"
+                          onClick={() => setCustomColor("")}
+                        >
+                          Default
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Message Date & Time</Label>
+                      <div className="flex gap-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-normal">
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {customDate ? format(customDate, "PPP") : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={customDate} onSelect={setCustomDate} initialFocus />
+                          </PopoverContent>
+                        </Popover>
+
+                        <Input
+                          type="time"
+                          value={customTime}
+                          onChange={(e) => setCustomTime(e.target.value)}
+                          className="w-24"
+                        />
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setCustomDate(new Date())
+                            setCustomTime(format(new Date(), "HH:mm"))
+                          }}
+                        >
+                          Now
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex w-full gap-2">
+                  <Input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder={`Send a message as ${customSender}...`}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="submit"
+                    className={customColor ? "" : "bg-red-600 hover:bg-red-700"}
+                    style={{
+                      backgroundColor: customColor || "",
+                      color: customColor ? "white" : "",
+                    }}
+                  >
+                    <Send className="h-4 w-4 mr-1" /> Send
+                  </Button>
+                </div>
               </form>
             </CardFooter>
           </TabsContent>
