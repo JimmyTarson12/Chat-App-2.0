@@ -18,9 +18,6 @@ import { subscribeToHellMode, processHellModeMessage, type HellModeSettings } fr
 import DemonMessage from "@/components/demon-message"
 import { motion } from "framer-motion"
 
-// Import the debug component at the top
-import HellModeDebug from "@/components/hell-mode-debug"
-
 // Initialize Gun
 const gun = Gun({
   peers: ["https://gun-manhattan.herokuapp.com/gun"], // Public relay server
@@ -221,6 +218,9 @@ export default function Home() {
         }
       } else if (hellModeSettings.customMessage) {
         setDemonMessage(hellModeSettings.customMessage)
+      } else {
+        // Fallback to a random demonic message if no messages are defined
+        // setDemonMessage(getRandomDemonicMessage())
       }
     }
 
@@ -273,194 +273,195 @@ export default function Home() {
   const hellModeClasses = isInHellMode
     ? {
         container: "bg-black",
-        card: "bg-gray-900 border-red-800",
+        card: "bg-black border-red-800",
         header: "border-red-800",
         title: "text-red-500",
         username: "text-red-400",
         button: "bg-red-900 hover:bg-red-800 text-red-100",
-        scrollArea: "border-red-800 bg-gray-900",
-        input: "bg-gray-800 border-red-800 text-red-300 placeholder:text-red-700",
+        scrollArea: "border-red-800 bg-black",
+        input: "bg-gray-900 border-red-800 text-red-300 placeholder:text-red-700",
       }
     : {}
 
   return (
-    <div className={`container mx-auto max-w-4xl p-4 ${hellModeClasses.container || ""}`}>
-      <Card className={`h-[calc(100vh-2rem)] ${hellModeClasses.card || ""}`}>
-        <CardHeader
-          className={`flex flex-row items-center justify-between space-y-0 pb-2 ${hellModeClasses.header || ""}`}
-        >
-          <CardTitle className={hellModeClasses.title || ""}>
-            {isInHellMode ? (
-              <span className="flex items-center">
-                <Flame className="h-5 w-5 mr-2 text-red-600" />
-                Hellish Chat
-              </span>
-            ) : (
-              "Massive Group Chat"
-            )}
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <span className={`text-sm font-medium ${hellModeClasses.username || ""}`}>{username}</span>
-            <Button
-              variant={isInHellMode ? "default" : "outline"}
-              size="sm"
-              onClick={handleLogout}
-              className={hellModeClasses.button || ""}
-            >
-              Logout
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="flex h-[calc(100%-5rem)] flex-col gap-4">
-          {isMuted && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                You have been muted by an administrator. You can still read messages but cannot send new ones.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isChatDisabled && (
-            <Alert
-              variant="warning"
-              className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800"
-            >
-              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-              <AlertDescription className="text-yellow-800 dark:text-yellow-300">
-                Chat is currently disabled for maintenance
-                {chatStatus.reason ? `: ${chatStatus.reason}` : ""}
-                {chatStatus.disabledBy ? ` (by ${chatStatus.disabledBy})` : ""}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isInHellMode && (
-            <Alert variant="destructive" className="bg-red-900 border-red-700 text-red-200">
-              <Flame className="h-4 w-4 text-red-400" />
-              <AlertDescription className="text-red-200">
-                You have been sent to hell by an administrator. Your messages may be corrupted by demonic forces.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {pinnedMessages.length > 0 && (
-            <div
-              className={`rounded-md border ${isInHellMode ? "border-red-800 bg-gray-900" : "border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800"} p-3`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Pin className={`h-4 w-4 ${isInHellMode ? "text-red-500" : "text-blue-500"}`} />
-                <h3
-                  className={`text-sm font-medium ${isInHellMode ? "text-red-400" : "text-blue-700 dark:text-blue-300"}`}
-                >
-                  Pinned Message{pinnedMessages.length > 1 ? "s" : ""}
-                </h3>
-              </div>
-              <ScrollArea className="max-h-32">
-                <div className="space-y-2">
-                  {pinnedMessages.map((msg) => (
-                    <div key={msg.id} className="text-sm">
-                      <div className="flex items-center gap-1">
-                        <span className={`font-medium ${isInHellMode ? "text-red-400" : ""}`}>
-                          {msg.sender === "GOD" ? (
-                            <span className={isInHellMode ? "text-red-600" : "text-red-500"}>{msg.sender}</span>
-                          ) : (
-                            msg.sender
-                          )}
-                          :
-                        </span>
-                      </div>
-                      <p className={`mt-0.5 ${isInHellMode ? "text-red-300" : ""}`}>{msg.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
+    <div className={`min-h-screen ${isInHellMode ? "bg-black" : ""}`}>
+      <div className={`container mx-auto max-w-4xl p-4 ${isInHellMode ? "bg-black" : ""}`}>
+        <Card className={`h-[calc(100vh-2rem)] ${hellModeClasses.card || ""}`}>
+          <CardHeader
+            className={`flex flex-row items-center justify-between space-y-0 pb-2 ${hellModeClasses.header || ""}`}
+          >
+            <CardTitle className={hellModeClasses.title || ""}>
+              {isInHellMode ? (
+                <span className="flex items-center">
+                  <Flame className="h-5 w-5 mr-2 text-red-600" />
+                  Hellish Chat
+                </span>
+              ) : (
+                "Massive Group Chat"
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <span className={`text-sm font-medium ${hellModeClasses.username || ""}`}>{username}</span>
+              <Button
+                variant={isInHellMode ? "default" : "outline"}
+                size="sm"
+                onClick={handleLogout}
+                className={hellModeClasses.button || ""}
+              >
+                Logout
+              </Button>
             </div>
-          )}
+          </CardHeader>
+          <CardContent className="flex h-[calc(100%-5rem)] flex-col gap-4">
+            {isMuted && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  You have been muted by an administrator. You can still read messages but cannot send new ones.
+                </AlertDescription>
+              </Alert>
+            )}
 
-          <ScrollArea className={`flex-1 rounded-md border p-4 ${hellModeClasses.scrollArea || ""}`}>
-            {messages.length === 0 ? (
-              <div
-                className={`flex h-full items-center justify-center ${isInHellMode ? "text-red-700" : "text-muted-foreground"}`}
+            {isChatDisabled && (
+              <Alert
+                variant="warning"
+                className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800"
               >
-                {isInHellMode ? "The void awaits your first message..." : "No messages yet. Be the first to say hello!"}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {messages.map((msg) => (
-                  <ChatMessage
-                    key={msg.id}
-                    message={msg}
-                    isCurrentUser={msg.sender === username}
-                    isHellMode={isInHellMode}
-                  />
-                ))}
-                <div ref={messagesEndRef} />
+                <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                <AlertDescription className="text-yellow-800 dark:text-yellow-300">
+                  Chat is currently disabled for maintenance
+                  {chatStatus.reason ? `: ${chatStatus.reason}` : ""}
+                  {chatStatus.disabledBy ? ` (by ${chatStatus.disabledBy})` : ""}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {isInHellMode && (
+              <Alert variant="destructive" className="bg-red-900 border-red-700 text-red-200">
+                <Flame className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-200">
+                  You have been sent to hell by an administrator. Your messages may be corrupted by demonic forces.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {pinnedMessages.length > 0 && (
+              <div
+                className={`rounded-md border ${isInHellMode ? "border-red-800 bg-gray-900" : "border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800"} p-3`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Pin className={`h-4 w-4 ${isInHellMode ? "text-red-500" : "text-blue-500"}`} />
+                  <h3
+                    className={`text-sm font-medium ${isInHellMode ? "text-red-400" : "text-blue-700 dark:text-blue-300"}`}
+                  >
+                    Pinned Message{pinnedMessages.length > 1 ? "s" : ""}
+                  </h3>
+                </div>
+                <ScrollArea className="max-h-32">
+                  <div className="space-y-2">
+                    {pinnedMessages.map((msg) => (
+                      <div key={msg.id} className="text-sm">
+                        <div className="flex items-center gap-1">
+                          <span className={`font-medium ${isInHellMode ? "text-red-400" : ""}`}>
+                            {msg.sender === "GOD" ? (
+                              <span className={isInHellMode ? "text-red-600" : "text-red-500"}>{msg.sender}</span>
+                            ) : (
+                              msg.sender
+                            )}
+                            :
+                          </span>
+                        </div>
+                        <p className={`mt-0.5 ${isInHellMode ? "text-red-300" : ""}`}>{msg.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
             )}
-          </ScrollArea>
 
-          <form onSubmit={handleSendMessage} className="flex gap-2">
-            <Input
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={
-                isMuted
-                  ? "You have been muted"
-                  : isChatDisabled
-                    ? "Chat is currently disabled"
-                    : isInHellMode
-                      ? "Type your message to the void..."
-                      : "Type your message..."
-              }
-              className={`flex-1 ${hellModeClasses.input || ""}`}
-              disabled={isMuted || isChatDisabled}
-            />
-            <Button
-              type="submit"
-              disabled={isMuted || isChatDisabled}
-              className={isInHellMode ? "bg-red-800 hover:bg-red-700 text-red-100" : ""}
-            >
-              Send
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            <ScrollArea className={`flex-1 rounded-md border p-4 ${hellModeClasses.scrollArea || ""}`}>
+              {messages.length === 0 ? (
+                <div
+                  className={`flex h-full items-center justify-center ${isInHellMode ? "text-red-700" : "text-muted-foreground"}`}
+                >
+                  {isInHellMode
+                    ? "The void awaits your first message..."
+                    : "No messages yet. Be the first to say hello!"}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {messages.map((msg) => (
+                    <ChatMessage
+                      key={msg.id}
+                      message={msg}
+                      isCurrentUser={msg.sender === username}
+                      isHellMode={isInHellMode}
+                    />
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </ScrollArea>
 
-      {demonMessage && <DemonMessage message={demonMessage} onClose={handleCloseDemonMessage} />}
-
-      {isInHellMode && (
-        <>
-          {/* Floating flames effect */}
-          <div className="fixed inset-0 pointer-events-none z-0">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute"
-                initial={{
-                  bottom: -20,
-                  left: `${Math.random() * 100}%`,
-                  opacity: 0.3 + Math.random() * 0.5,
-                }}
-                animate={{
-                  bottom: `${80 + Math.random() * 20}%`,
-                  left: `${Math.random() * 100}%`,
-                }}
-                transition={{
-                  duration: 10 + Math.random() * 20,
-                  repeat: Number.POSITIVE_INFINITY,
-                  repeatType: "loop",
-                }}
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <Input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder={
+                  isMuted
+                    ? "You have been muted"
+                    : isChatDisabled
+                      ? "Chat is currently disabled"
+                      : isInHellMode
+                        ? "Type your message to the void..."
+                        : "Type your message..."
+                }
+                className={`flex-1 ${hellModeClasses.input || ""}`}
+                disabled={isMuted || isChatDisabled}
+              />
+              <Button
+                type="submit"
+                disabled={isMuted || isChatDisabled}
+                className={isInHellMode ? "bg-red-800 hover:bg-red-700 text-red-100" : ""}
               >
-                <Flame className="text-red-600/30 h-10 w-10" />
-              </motion.div>
-            ))}
-          </div>
-        </>
-      )}
+                Send
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-      {/* Debug component - only visible in development */}
-      {process.env.NODE_ENV === "development" && !isAdmin && username && <HellModeDebug username={username} />}
+        {demonMessage && <DemonMessage message={demonMessage} onClose={handleCloseDemonMessage} />}
+
+        {isInHellMode && (
+          <>
+            {/* Floating flames effect */}
+            <div className="fixed inset-0 pointer-events-none z-0">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute"
+                  initial={{
+                    bottom: -20,
+                    left: `${Math.random() * 100}%`,
+                    opacity: 0.3 + Math.random() * 0.5,
+                  }}
+                  animate={{
+                    bottom: `${80 + Math.random() * 20}%`,
+                    left: `${Math.random() * 100}%`,
+                  }}
+                  transition={{
+                    duration: 10 + Math.random() * 20,
+                    repeat: Number.POSITIVE_INFINITY,
+                    repeatType: "loop",
+                  }}
+                >
+                  <Flame className="text-red-600/30 h-10 w-10" />
+                </motion.div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
