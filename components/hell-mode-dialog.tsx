@@ -26,6 +26,7 @@ interface HellModeDialogProps {
 export default function HellModeDialog({ isOpen, onClose, username, adminName }: HellModeDialogProps) {
   const [demonMessages, setLocalDemonMessages] = useState<string[]>(getDefaultDemonMessages())
   const [newMessage, setNewMessage] = useState<string>("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
   const handleAddMessage = () => {
@@ -43,9 +44,13 @@ export default function HellModeDialog({ isOpen, onClose, username, adminName }:
 
   const handleEnableHellMode = async () => {
     try {
+      setIsSubmitting(true)
       console.log("Enabling Hell Mode for", username, "with messages:", demonMessages)
 
-      await enableHellMode(username, adminName, demonMessages)
+      // Make sure we have at least one message
+      const messagesToUse = demonMessages.length > 0 ? demonMessages : getDefaultDemonMessages()
+
+      await enableHellMode(username, adminName, messagesToUse)
 
       toast({
         title: "Hell Mode Activated",
@@ -61,6 +66,8 @@ export default function HellModeDialog({ isOpen, onClose, username, adminName }:
         description: "Failed to enable Hell Mode. Check console for details.",
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -119,11 +126,21 @@ export default function HellModeDialog({ isOpen, onClose, username, adminName }:
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleEnableHellMode} className="bg-red-600 hover:bg-red-700 text-white">
-            <Flame className="h-4 w-4 mr-1" /> Enable Hell Mode
+          <Button
+            onClick={handleEnableHellMode}
+            className="bg-red-600 hover:bg-red-700 text-white"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>Processing...</>
+            ) : (
+              <>
+                <Flame className="h-4 w-4 mr-1" /> Enable Hell Mode
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
